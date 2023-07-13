@@ -1,19 +1,19 @@
 
 local opts = {
-    thresholdDB = -20,
-    thresholdDuration = 0.2,
-    gapStartWait = 0.05,
-    speedUpdateInterval = 0.2,
-    maxSpeed = 4,
-    arnndnEnable = true,
-    arnndnModelPath = "",
-    arnndnOutput = false,
-    altNormalSpeed = -1,
-    speedConstant = 2,
-    speedFactor = 1.15,
-    speedExponent = 1.2,
-    infoStyle = "off",
-    resyncDroppedFramesThreshold = -1,
+    threshold_db = -20,
+    threshold_duration = 0.2,
+    startdelay = 0.05,
+    speed_updateinterval = 0.2,
+    maxspeed = 4,
+    arnndn_enable = true,
+    arnndn_modelpath = "",
+    arnndn_output = false,
+    alt_normal_speed = -1,
+    ramp_constant = 2,
+    ramp_factor = 1.15,
+    ramp_exponent = 1.2,
+    infostyle = "off",
+    resync_threshold_droppedframes = -1,
     debug = false,
 }
 
@@ -40,12 +40,12 @@ local function print(...)
 end
 
 local function get_silence_filter()
-    local filter = "silencedetect=n="..opts.thresholdDB.."dB:d="..opts.thresholdDuration
-    if opts.arnndnEnable and opts.arnndnModelPath ~= "" then
-        local path = mp.command_native{"expand-path", opts.arnndnModelPath}
+    local filter = "silencedetect=n="..opts.threshold_db.."dB:d="..opts.threshold_duration
+    if opts.arnndn_enable and opts.arnndn_modelpath ~= "" then
+        local path = mp.command_native{"expand-path", opts.arnndn_modelpath}
         local rnn = "arnndn='"..path.."'"
         filter = rnn..","..filter
-        if not opts.arnndnOutput then
+        if not opts.arnndn_output then
             -- need amix with to keep the detection filter branch advancing
             -- and not lagging behind. Weights only keep the original audio.
             filter = "asplit[ao],"..filter..",[ao]amix='weights=1 0'"
@@ -161,22 +161,22 @@ local function format_info(style, now)
     end
     local enabled = mp.get_property("af"):find("@"..detect_filter_label..":")
     return "Status: "..(enabled and "enabled" or "disabled").."\n"
-        ..("Threshold: %+gdB, %gs (+%gs)\n"):format(opts.thresholdDB, opts.thresholdDuration, opts.gapStartWait)
-        .."Arnndn: "..(opts.arnndnEnable and opts.arnndnModelPath ~= ""
-                        and "enabled"..(opts.arnndnOutput and " with output" or "") or "disabled").."\n"
-        ..("Speed ramp: %g + (time * %g) ^ %g\n"):format(opts.speedConstant, opts.speedFactor, opts.speedExponent)
-        ..("Max speed: %gx, Update interval: %gs\n"):format(opts.maxSpeed, opts.speedUpdateInterval)
+        ..("Threshold: %+gdB, %gs (+%gs)\n"):format(opts.threshold_db, opts.threshold_duration, opts.startdelay)
+        .."Arnndn: "..(opts.arnndn_enable and opts.arnndn_modelpath ~= ""
+                        and "enabled"..(opts.arnndn_output and " with output" or "") or "disabled").."\n"
+        ..("Speed ramp: %g + (time * %g) ^ %g\n"):format(opts.ramp_constant, opts.ramp_factor, opts.ramp_exponent)
+        ..("Max speed: %gx, Update interval: %gs\n"):format(opts.maxspeed, opts.speed_updateinterval)
         ..silence_stats
 end
 
 local function update_info(now)
-    if opts.infoStyle == "compact" or opts.infoStyle == "verbose" then
+    if opts.infostyle == "compact" or opts.infostyle == "verbose" then
         local s = speed_stats
-        if opts.infoStyle == "compact" and s.saved_total + s.saved_current == 0 and s.time == nil then
+        if opts.infostyle == "compact" and s.saved_total + s.saved_current == 0 and s.time == nil then
             return false
         end
         mp.set_property_native("user-data/skipsilence/info",
-            "\n"..format_info(opts.infoStyle, now))
+            "\n"..format_info(opts.infostyle, now))
         return true
     end
     return false
@@ -224,8 +224,8 @@ local function check_time(time_pos)
         if not ev then break end
 
         -- leave time for gap end to arrive before speeding up
-        if ev.is_silent and opts.gapStartWait > 0 then
-            local remaining = opts.gapStartWait - (now - ev.recv_time)
+        if ev.is_silent and opts.startdelay > 0 then
+            local remaining = opts.startdelay - (now - ev.recv_time)
             if remaining > 0 and events_count() < 2 then
                 print("event is too recent; recheck in", remaining)
                 schedule_check(remaining)
@@ -241,8 +241,8 @@ local function check_time(time_pos)
 
             if not was_silent then
                 orig_speed = speed
-                if opts.altNormalSpeed >= 0 and math.abs(orig_speed - 1) < 0.001 then
-                    orig_speed = opts.altNormalSpeed
+                if opts.alt_normal_speed >= 0 and math.abs(orig_speed - 1) < 0.001 then
+                    orig_speed = opts.alt_normal_speed
                     new_speed = orig_speed
                 end
             end
@@ -256,19 +256,19 @@ local function check_time(time_pos)
         drop_event()
     end
     if is_silent then
-        local remaining = opts.speedUpdateInterval - (now - last_speed_change_time)
+        local remaining = opts.speed_updateinterval - (now - last_speed_change_time)
         if remaining > 0 then
             print("last speed change too recent; recheck in", remaining)
             schedule_check(remaining)
         else
             local length = stats_silence_length(now)
-            new_speed = orig_speed * (opts.speedConstant + (length * opts.speedFactor) ^ opts.speedExponent)
-            schedule_check(opts.speedUpdateInterval)
+            new_speed = orig_speed * (opts.ramp_constant + (length * opts.ramp_factor) ^ opts.ramp_exponent)
+            schedule_check(opts.speed_updateinterval)
         end
         did_change = true
     end
     if new_speed then
-        local new_speed = math.min(new_speed, opts.maxSpeed)
+        local new_speed = math.min(new_speed, opts.maxspeed)
         expected_speed = new_speed
         if new_speed ~= speed then
             mp.set_property("speed", new_speed)
@@ -359,9 +359,9 @@ local function check_reapply_filter()
 end
 
 local function adjust_thresholdDB(change)
-    local value = opts.thresholdDB + change
+    local value = opts.threshold_db + change
     mp.commandv("change-list", "script-opts", "append",
-        mp.get_script_name().."-thresholdDB="..value)
+        mp.get_script_name().."-threshold_db="..value)
     mp.osd_message("silence threshold: "..value.."dB")
 end
 
@@ -375,11 +375,11 @@ end
 
 local function cycle_info_style(style)
     local value = style or (
-        opts.infoStyle == "compact" and "verbose" or (
-        opts.infoStyle == "verbose" and "off" or "compact"))
+        opts.infostyle == "compact" and "verbose" or (
+        opts.infostyle == "verbose" and "off" or "compact"))
     mp.commandv("change-list", "script-opts", "append",
-        mp.get_script_name().."-infoStyle="..value)
-    mp.osd_message(mp.get_script_name().."-infoStyle: "..value)
+        mp.get_script_name().."-infostyle="..value)
+    mp.osd_message(mp.get_script_name().."-infostyle: "..value)
 end
 
 local function handle_start_file()
@@ -440,7 +440,7 @@ local function disable(opt_orig_speed)
         mp.set_property_number("speed", opt_orig_speed)
     else
         local speed = is_silent and orig_speed or mp.get_property_number("speed")
-        if opts.altNormalSpeed and math.abs(speed - opts.altNormalSpeed) < 0.001 then
+        if opts.alt_normal_speed and math.abs(speed - opts.alt_normal_speed) < 0.001 then
             mp.set_property_number("speed", 1)
         elseif is_silent then
             mp.set_property_number("speed", speed)
@@ -452,9 +452,9 @@ local function disable(opt_orig_speed)
     clear_events()
     is_silent = false
     mp.set_property_native("user-data/skipsilence/enabled", false)
-    if opts.resyncDroppedFramesThreshold >= 0 then
+    if opts.resync_threshold_droppedframes >= 0 then
         local drops = mp.get_property_number("frame-drop-count")
-        if drops and drops >= opts.resyncDroppedFramesThreshold then
+        if drops and drops >= opts.resync_threshold_droppedframes then
             mp.commandv("seek", "0", "exact")
         end
     end
@@ -469,7 +469,7 @@ local function toggle()
 end
 
 local function info(style)
-    mp.osd_message(format_info(style or opts.infoStyle))
+    mp.osd_message(format_info(style or opts.infostyle))
 end
 
 -- volume display seems to have weird side effects (stops arnndn)
@@ -498,16 +498,16 @@ end
 -- end
 
 (require "mp.options").read_options(opts, nil, function(list)
-    if list['thresholdDB'] or list['thresholdDuration']
-        or list["arnndnEnable"] or list["arnndnModelPath"]
-        or list["arnndnOutput"] then
+    if list['threshold_db'] or list['threshold_duration']
+        or list["arnndn_enable"] or list["arnndn_modelpath"]
+        or list["arnndn_output"] then
         check_reapply_filter()
     end
-    if list['infoStyle'] then
+    if list['infostyle'] then
         update_info_now()
     end
-    if list["speedConstant"] or list["speedFactor"] or list["speedExponent"]
-        or list["speedUpdateInterval"] or list["maxSpeed"] then
+    if list["ramp_constant"] or list["ramp_factor"] or list["ramp_exponent"]
+        or list["speed_updateinterval"] or list["maxspeed"] then
         if is_silent then
             check_time_immediate()
         end
@@ -522,12 +522,12 @@ mp.add_key_binding(nil, "enable", enable)
 mp.add_key_binding(nil, "disable", disable)
 mp.add_key_binding("F2", "toggle", toggle)
 -- mp.add_key_binding("Shift+F2", "voldetect", voldetect)
-mp.register_script_message("adjust-thresholdDB", adjust_thresholdDB)
+mp.register_script_message("adjust-threshold-db", adjust_thresholdDB)
 mp.add_key_binding("F3", "threshold-down", function() adjust_thresholdDB(-1) end, "repeatable")
 mp.add_key_binding("F4", "threshold-up", function() adjust_thresholdDB(1) end, "repeatable")
 mp.add_key_binding(nil, "info", info, "repeatable")
 mp.add_key_binding(nil, "cycle-info-style", cycle_info_style, "repeatable")
-mp.add_key_binding(nil, "toggle-arnndn", function() toggle_option("arnndnEnable") end)
-mp.add_key_binding(nil, "toggle-arnndnOutput", function() toggle_option("arnndnOutput") end)
+mp.add_key_binding(nil, "toggle-arnndn", function() toggle_option("arnndn_enable") end)
+mp.add_key_binding(nil, "toggle-arnndn-output", function() toggle_option("arnndn_output") end)
 
 -- vim:set sw=4 sts=0 et tw=0:
