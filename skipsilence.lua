@@ -182,10 +182,9 @@ local check_time_timer
 
 local detect_filter_label = mp.get_script_name() .. "_silencedetect"
 
-local orig_print = print
-local function print(...)
+local function dprint(...)
     if opts.debug then
-        orig_print(("%.3f"):format(mp.get_time()), ...)
+        print(("%.3f"):format(mp.get_time()), ...)
     end
 end
 
@@ -380,7 +379,7 @@ local function check_time(time_pos)
         if ev.is_silent and opts.startdelay > 0 then
             local remaining = opts.startdelay - (now - ev.recv_time)
             if remaining > 0 and events_count() < 2 then
-                print("event is too recent; recheck in", remaining)
+                dprint("event is too recent; recheck in", remaining)
                 schedule_check(remaining)
                 break
             end
@@ -390,7 +389,7 @@ local function check_time(time_pos)
         did_change = true
         if is_silent then
             stats_start_current(now, speed)
-            print("silence start at", time_pos)
+            dprint("silence start at", time_pos)
 
             if not was_silent then
                 orig_speed = speed
@@ -402,7 +401,7 @@ local function check_time(time_pos)
         else
             stats_end_current(now)
 
-            print("silence end at", time_pos, "saved:", get_saved_time(now, speed))
+            dprint("silence end at", time_pos, "saved:", get_saved_time(now, speed))
             new_speed = orig_speed
         end
 
@@ -411,7 +410,7 @@ local function check_time(time_pos)
     if is_silent then
         local remaining = opts.speed_updateinterval - (now - last_speed_change_time)
         if remaining > 0 then
-            print("last speed change too recent; recheck in", remaining)
+            dprint("last speed change too recent; recheck in", remaining)
             schedule_check(remaining)
         else
             local length = stats_silence_length(now)
@@ -428,7 +427,7 @@ local function check_time(time_pos)
             last_speed_change_time = mp.get_time()
         end
     end
-    print("check_time:", time_pos, "new_speed:", new_speed, "is_silent:", is_silent)
+    dprint("check_time:", time_pos, "new_speed:", new_speed, "is_silent:", is_silent)
     if did_change then
         update_info(now)
     end
@@ -439,7 +438,7 @@ local function check_time_immediate()
     if time then
         check_time(time)
     else
-        print("invalid state for immediate check_time call; waiting for playback-restart")
+        dprint("invalid state for immediate check_time call; waiting for playback-restart")
     end
 end
 
@@ -460,7 +459,7 @@ local function add_event(time, is_silent)
 end
 
 local function handle_pause(name, value)
-    print("handle_pause", name, value)
+    dprint("handle_pause", name, value)
     pause_states[name] = value
     is_paused = false
     local k, v
@@ -478,13 +477,13 @@ local function handle_pause(name, value)
 end
 
 local function handle_speed(name, speed)
-    print("handle_speed", speed)
+    dprint("handle_speed", speed)
     if is_silent then
         stats_accumulate(mp.get_time(), speed)
     end
     if math.abs(speed - expected_speed) > 0.01 then
         local do_check = check_time_timer and check_time_timer:is_enabled()
-        print("handle_speed: external speed change: got", speed, "instead of", expected_speed)
+        dprint("handle_speed: external speed change: got", speed, "instead of", expected_speed)
         if is_silent then
             if opts.apply_speed_change == "add" then
                 orig_speed = orig_speed + speed - expected_speed
@@ -503,10 +502,10 @@ end
 local function handle_silence_msg(msg)
     if msg.prefix ~= "ffmpeg" then return end
     if msg.text:find("^silencedetect: silence_start: ") then
-        print("got silence start:", msg.text:gsub("\n$", ""))
+        dprint("got silence start:", msg.text:gsub("\n$", ""))
         add_event(st, true)
     elseif msg.text:find("^silencedetect: silence_end: ") then
-        print("got silence end:", msg.text:gsub("\n$", ""))
+        dprint("got silence end:", msg.text:gsub("\n$", ""))
         add_event(et, false)
     end
 end
@@ -548,14 +547,14 @@ local function cycle_info_style(style)
 end
 
 local function handle_start_file()
-    print("handle_start_file")
+    dprint("handle_start_file")
     clear_silence_state()
     stats_clear()
     update_info_now()
 end
 
 local function handle_playback_restart()
-    print("handle_playback_restart")
+    dprint("handle_playback_restart")
     clear_silence_state()
 end
 
