@@ -1,19 +1,161 @@
-
+-- Increase playback speed during silence - a revolution in attention-deficit
+-- induction technology.
+--
+-- Main repository: https://codeberg.org/ferreum/mpv-skipsilence/
+--
+-- Based on the script https://gist.github.com/bitingsock/e8a56446ad9c1ed92d872aeb38edf124
+--
+-- This is similar to the NewPipe app's built-in "Fast-forward during silence"
+-- feature. The main caveat is that audio-video is desynchronized very easily.
+-- For audio-only or audio-focused playback, it works very well.
+--
+-- Features:
+-- - Parameterized speedup ramp, allowing profiles for different kinds of
+--   media (ramp_*, speed_*, startdelay options).
+-- - Noise reduction of the detected signal. This allows to speed up
+--   pauses in speech despite background noise. The output audio is
+--   unaffected by default (arnndn_* options).
+-- - Workaround for audio-video desynchronization
+--   (resync_threshold_droppedframes option).
+-- - Workaround for clicks during speed changes (alt_normal_speed option).
+-- - Saved time estimation.
+-- - osd-msg integration (with user-data, mpv 0.35 dev build and above only).
+--
+-- Default bindings:
+--
+-- F2 - toggle
+-- F3 - threshold-down
+-- F4 - threshold-up
+--
+-- All supported bindings (bind with 'script-binding skipsilence/<name>'):
+--
+-- enable - enable the script, if it wasn't enabled.
+-- disable - disable the script, if it was enabled.
+-- toggle - toggle the script
+-- threshold-down - decrease threshold_db by 1 (reduce amount skipped)
+-- threshold-up - increase threshold_db by 1 (increase amount skipped)
+-- info - show state info in osd
+-- cycle-info-style - cycle the infostyle option
+-- toggle-arnndn - toggle the arnndn_enable option
+-- toggle-arnndn-output - toggle the arnndn_output option
+--
+-- Script messages (use with 'script-message-to skipsilence <msg> ...':
+--
+-- adjust-threshold-db <n>
+--      Adjust threshold_db by n.
+-- enable [no-osd]
+--      Enable the script. Passing 'no-osd' suppresses the osd message.
+-- disable [<speed>]
+--      Disable the script. If speed is specified, set the playback speed to
+--      the given value instead of the normal playback speed.
+-- info [<style>]
+--      Show state as osd message. If style is specified, use it instead of
+--      the infostyle option. Defaults to "verbose" if "off".
+--
+-- User-data (mpv 0.35 dev version and above):
+--
+-- user-data/skipsilence/enabled - true/false according to enabled state
+-- user-data/skipsilence/info - the current info according to the infostyle option
+--
+-- These allow showing the state in osd like this:
+--
+--      osd-msg3=...${?user-data/skipsilence/enabled==true:S}...${user-data/skipsilence/info}
+--
+-- This shows "S" when skipsilence is enabled and shows the selected infostyle
+-- in the next lines (infostyle=compact recommended).
+--
+-- Configuration:
+--
+-- For how to use these options, search the mpv man page for 'script-opts',
+-- 'change-list', 'Key/value list options', and 'Configuration' for the
+-- 'script-opts/osc.conf' documentation.
+-- Use the prefix 'skipsilence' (unless the script was renamed).
 local opts = {
+    -- The silence threshold in decibel. Anything quieter than this is
+    -- detected as silence. Can be adjusted with the threshold-up,
+    -- threshold-down bindings, and adjust-threshold-db script message.
     threshold_db = -20,
+    -- Minimum duration of silence to be detected, in seconds. This is
+    -- measured in stream time, as if playback speed was 1.
     threshold_duration = 0.2,
+    -- How long to wait before speedup. This is measured in real time, thus
+    -- higher playback speeds would reduce the length of content skipped.
     startdelay = 0.05,
+
+    -- How often to update the speed during silence, in seconds of real time.
     speed_updateinterval = 0.2,
+    -- The maximum playback speed during silence.
     speed_max = 4,
-    arnndn_enable = true,
-    arnndn_modelpath = "",
-    arnndn_output = false,
-    alt_normal_speed = -1,
+
+    -- Speedup ramp parameters. The formula for playback speedup is:
+    --
+    --     ramp_constant + (time * ramp_factor) ^ ramp_exponent
+    --
+    -- Where time is the real time passed since start of speedup.
+    -- The result is multiplied with the original playback speed.
+    --
+    -- - ramp_constant should always be greater or equal to one, otherwise it
+    --   will slow down at the start of silence.
+    -- - Setting ramp_factor to 0 disables the ramp, resulting in a constant
+    --   speed during silence.
+    -- - ramp_exponent is the "acceleration" of the curve. A value of 1
+    --   results in a linear curve, values above 1 increase the speed faster
+    --   the more time has passed, while values below 1 speed up at
+    --   decreasing intervals.
+    -- - The more aggressive this curve is configured, the faster
+    --   audio and video is desynchronized. If video stutters and drops frames
+    --   when silence starts, reduce ramp_constant to improve this problem.
     ramp_constant = 2,
     ramp_factor = 1.15,
     ramp_exponent = 1.2,
-    infostyle = "off",
+
+    -- Noise reduction filter configuration.
+    --
+    -- This allows removing noise from the audio stream before the
+    -- silencedetect filter, allowing to speed up pauses in dialogues despite
+    -- background noise. The output audio is unaffected by default.
+    --
+    -- Whether the detected audio signal should be preprocessed with arnndn.
+    -- If arnndn_modelpath is empty, this has no effect
+    arnndn_enable = true,
+    -- Path to the rnnn file containing the model parameters. If empty,
+    -- noise reduction is disabled.
+    -- The mpv config path can be referenced with the prefix '~~/'.
+    -- Avoid special characters in this option, they must be escaped to
+    -- work with "af add lavfi=[arnndn='...']".
+    arnndn_modelpath = "",
+    -- Whether the denoised signal should be used as the output. Disabled by
+    -- default, so the output is unaffected.
+    arnndn_output = false,
+
+    -- If >= 0, use this value instead of a playback speed of 1.
+    -- This is a work around to stop audio clicks when switching between
+    -- normal playback and speeding up. Playing back at a slightly different
+    -- speed (e.g. 1.01x), keeps the scaletempo2 filter active, so audio is
+    -- played back without interruptions.
+    alt_normal_speed = -1,
+
+    -- When disabling skipsilence, fix audio sync if this many frames have
+    -- been dropped since the last playback restart (seek, etc.).
+    -- Disabled if value is less than 0.
+    --
+    -- When disabling skipsilence while frame-drop-count is greater or equal
+    -- to configured value, audio-video sync is fixed by running
+    -- 'seek 0 exact'. May produce a short pause and/or audio repeat.
+    --
+    -- Note that frame-drop-count does not exactly correspond to the
+    -- audio-video desynchronization. It is used as a proxy to avoid
+    -- resyncing every time the script is disabled. Recommended value: 100.
     resync_threshold_droppedframes = -1,
+
+    -- Info style used for the 'user-data/skipsilence/info' property and
+    -- the default of the 'info' script-message/binding.
+    -- May be one of
+    -- - 'off' (no information),
+    -- - 'compact' (show saved time),
+    -- - 'verbose' (show most information).
+    infostyle = "off",
+
     debug = false,
 }
 
