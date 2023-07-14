@@ -4,7 +4,7 @@ local opts = {
     threshold_duration = 0.2,
     startdelay = 0.05,
     speed_updateinterval = 0.2,
-    maxspeed = 4,
+    speed_max = 4,
     arnndn_enable = true,
     arnndn_modelpath = "",
     arnndn_output = false,
@@ -165,7 +165,7 @@ local function format_info(style, now)
         .."Arnndn: "..(opts.arnndn_enable and opts.arnndn_modelpath ~= ""
                         and "enabled"..(opts.arnndn_output and " with output" or "") or "disabled").."\n"
         ..("Speed ramp: %g + (time * %g) ^ %g\n"):format(opts.ramp_constant, opts.ramp_factor, opts.ramp_exponent)
-        ..("Max speed: %gx, Update interval: %gs\n"):format(opts.maxspeed, opts.speed_updateinterval)
+        ..("Max speed: %gx, Update interval: %gs\n"):format(opts.speed_max, opts.speed_updateinterval)
         ..silence_stats
 end
 
@@ -268,7 +268,7 @@ local function check_time(time_pos)
         did_change = true
     end
     if new_speed then
-        local new_speed = math.min(new_speed, opts.maxspeed)
+        local new_speed = math.min(new_speed, opts.speed_max)
         expected_speed = new_speed
         if new_speed ~= speed then
             mp.set_property("speed", new_speed)
@@ -507,7 +507,7 @@ end
         update_info_now()
     end
     if list["ramp_constant"] or list["ramp_factor"] or list["ramp_exponent"]
-        or list["speed_updateinterval"] or list["maxspeed"] then
+        or list["speed_updateinterval"] or list["speed_max"] then
         if is_silent then
             check_time_immediate()
         end
