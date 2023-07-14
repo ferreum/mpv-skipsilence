@@ -619,31 +619,6 @@ local function info(style)
     mp.osd_message(format_info(style or opts.infostyle))
 end
 
--- volume display seems to have weird side effects (stops arnndn)
--- local function handle_volume_msg(msg)
---     if msg.text:find("^Parsed_volumedetect_[0-9]+: max_volume") then
---         mp.osd_message(msg.text)
---     end
--- end
--- local timer = nil
--- local function voldetect()
---     if timer ~= nil and timer:is_enabled() then
---         timer:kill()
---         timer = nil
---         mp.unregister_event(handle_volume_msg)
---         mp.command("no-osd af remove lavfi=volumedetect")
---     else
---         mp.register_event("log-message", handle_volume_msg)
---         mp.command("no-osd af remove lavfi=volumedetect")
---         timer = mp.add_periodic_timer(0.2, function()
---             mp.command("no-osd af pre lavfi=volumedetect")
---             mp.add_timeout(0.19, function()
---                 mp.command("no-osd af remove lavfi=volumedetect")
---             end)
---         end)
---     end
--- end
-
 (require "mp.options").read_options(opts, nil, function(list)
     if list['threshold_db'] or list['threshold_duration']
         or list["arnndn_enable"] or list["arnndn_modelpath"]
@@ -668,7 +643,6 @@ mp.enable_messages("v")
 mp.add_key_binding(nil, "enable", enable)
 mp.add_key_binding(nil, "disable", disable)
 mp.add_key_binding("F2", "toggle", toggle)
--- mp.add_key_binding("Shift+F2", "voldetect", voldetect)
 mp.register_script_message("adjust-threshold-db", adjust_thresholdDB)
 mp.add_key_binding("F3", "threshold-down", function() adjust_thresholdDB(-1) end, "repeatable")
 mp.add_key_binding("F4", "threshold-up", function() adjust_thresholdDB(1) end, "repeatable")
