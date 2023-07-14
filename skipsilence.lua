@@ -74,7 +74,7 @@ local opts = {
     -- The silence threshold in decibel. Anything quieter than this is
     -- detected as silence. Can be adjusted with the threshold-up,
     -- threshold-down bindings, and adjust-threshold-db script message.
-    threshold_db = -20,
+    threshold_db = -24,
     -- Minimum duration of silence to be detected, in seconds. This is
     -- measured in stream time, as if playback speed was 1.
     threshold_duration = 0.2,
@@ -105,7 +105,7 @@ local opts = {
     -- - The more aggressive this curve is configured, the faster
     --   audio and video is desynchronized. If video stutters and drops frames
     --   when silence starts, reduce ramp_constant to improve this problem.
-    ramp_constant = 2,
+    ramp_constant = 1.5,
     ramp_factor = 1.15,
     ramp_exponent = 1.2,
 
