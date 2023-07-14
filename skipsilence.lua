@@ -152,7 +152,8 @@ local opts = {
     -- the default of the 'info' script-message/binding.
     -- May be one of
     -- - 'off' (no information),
-    -- - 'compact' (show saved time),
+    -- - 'total' (show total saved time),
+    -- - 'compact' (show total and latest saved time),
     -- - 'verbose' (show most information).
     infostyle = "off",
 
@@ -295,6 +296,9 @@ end
 local function format_info(style, now)
     local saved_total, period_current, saved =
         get_current_stats(now or mp.get_time())
+    if style == "total" then
+        return ("Saved total: %.3fs"):format(saved_total)
+    end
 
     local silence_stats = ("Saved total: %.3fs\nLatest: %.3fs, %.3fs saved")
         :format(saved_total, period_current, saved)
@@ -312,7 +316,7 @@ local function format_info(style, now)
 end
 
 local function update_info(now)
-    if opts.infostyle == "compact" or opts.infostyle == "verbose" then
+    if opts.infostyle == "total" or opts.infostyle == "compact" or opts.infostyle == "verbose" then
         local s = speed_stats
         if opts.infostyle == "compact" and s.saved_total + s.saved_current == 0 and s.time == nil then
             return false
@@ -517,8 +521,9 @@ end
 
 local function cycle_info_style(style)
     local value = style or (
+        opts.infostyle == "total" and "compact" or (
         opts.infostyle == "compact" and "verbose" or (
-        opts.infostyle == "verbose" and "off" or "compact"))
+        opts.infostyle == "verbose" and "off" or "total")))
     mp.commandv("change-list", "script-opts", "append",
         mp.get_script_name().."-infostyle="..value)
     mp.osd_message(mp.get_script_name().."-infostyle: "..value)
