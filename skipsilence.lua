@@ -157,6 +157,13 @@ local opts = {
     -- - 'verbose' (show most information).
     infostyle = "off",
 
+    -- How to apply external speed change during silence.
+    -- This to makes speed change bindings work during fast forward. Set the
+    -- value according to what you use to change speed:
+    -- - 'add' - add the difference to the normal speed
+    -- - 'multiply' - multiply the normal speed with factor of change
+    apply_speed_change = "off",
+
     debug = false,
 }
 
@@ -475,10 +482,21 @@ local function handle_speed(name, speed)
     if is_silent then
         stats_accumulate(mp.get_time(), speed)
     end
-    local diff = math.abs(speed - expected_speed)
-    if diff > 0.1 and check_time_timer and check_time_timer:is_enabled() then
-        print("handle_speed: unexpected speed change: got", speed, "instead of", expected_speed)
-        check_time_immediate()
+    if math.abs(speed - expected_speed) > 0.01 then
+        local do_check = check_time_timer and check_time_timer:is_enabled()
+        print("handle_speed: external speed change: got", speed, "instead of", expected_speed)
+        if is_silent then
+            if opts.apply_speed_change == "add" then
+                orig_speed = orig_speed + speed - expected_speed
+                do_check = true
+            elseif opts.apply_speed_change == "multiply" then
+                orig_speed = orig_speed * speed / expected_speed
+                do_check = true
+            end
+        end
+        if do_check then
+            check_time_immediate()
+        end
     end
 end
 
