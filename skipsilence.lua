@@ -363,7 +363,8 @@ local function get_next_event()
     end
 end
 
-local function check_time(time_pos)
+local schedule_check_time -- function
+local function check_time()
     local now = mp.get_time()
     local speed = mp.get_property_number("speed")
 
@@ -380,7 +381,7 @@ local function check_time(time_pos)
             local remaining = opts.startdelay - (now - ev.recv_time)
             if remaining > 0 and events_count() < 2 then
                 dprint("event is too recent; recheck in", remaining)
-                schedule_check(remaining)
+                schedule_check_time(remaining)
                 break
             end
         end
@@ -389,7 +390,7 @@ local function check_time(time_pos)
         did_change = true
         if is_silent then
             stats_start_current(now, speed)
-            dprint("silence start at", time_pos)
+            dprint("silence start")
 
             if not was_silent then
                 orig_speed = speed
@@ -401,7 +402,7 @@ local function check_time(time_pos)
         else
             stats_end_current(now)
 
-            dprint("silence end at", time_pos, "saved:", get_saved_time(now, speed))
+            dprint("silence end, saved:", get_saved_time(now, speed))
             new_speed = orig_speed
         end
 
@@ -411,11 +412,11 @@ local function check_time(time_pos)
         local remaining = opts.speed_updateinterval - (now - last_speed_change_time)
         if remaining > 0 then
             dprint("last speed change too recent; recheck in", remaining)
-            schedule_check(remaining)
+            schedule_check_time(remaining)
         else
             local length = stats_silence_length(now)
             new_speed = orig_speed * (opts.ramp_constant + (length * opts.ramp_factor) ^ opts.ramp_exponent)
-            schedule_check(opts.speed_updateinterval)
+            schedule_check_time(opts.speed_updateinterval)
         end
         did_change = true
     end
@@ -427,26 +428,15 @@ local function check_time(time_pos)
             last_speed_change_time = mp.get_time()
         end
     end
-    dprint("check_time:", time_pos, "new_speed:", new_speed, "is_silent:", is_silent)
+    dprint("check_time: new_speed:", new_speed, "is_silent:", is_silent)
     if did_change then
         update_info(now)
     end
 end
 
-local function check_time_immediate()
-    local time = mp.get_property_number("audio-pts")
-    if time then
-        check_time(time)
-    else
-        dprint("invalid state for immediate check_time call; waiting for playback-restart")
-    end
-end
-
-function schedule_check(time)
+function schedule_check_time(time)
     if check_time_timer == nil then
-        check_time_timer = mp.add_timeout(time, function()
-            check_time_immediate()
-        end)
+        check_time_timer = mp.add_timeout(time, check_time)
     else
         check_time_timer:kill()
         check_time_timer.timeout = time
@@ -468,7 +458,7 @@ local function handle_pause(name, value)
             check_time_timer:kill()
         end
     else
-        check_time_immediate()
+        check_time()
     end
 end
 
@@ -490,7 +480,7 @@ local function handle_speed(name, speed)
             end
         end
         if do_check then
-            check_time_immediate()
+            check_time()
         end
     end
 end
@@ -506,7 +496,7 @@ local function add_event(time, is_silent)
         }
         events_ilast = i
         if not is_paused then
-            check_time_immediate()
+            check_time()
         end
     end
 end
@@ -648,7 +638,7 @@ end
     if list["ramp_constant"] or list["ramp_factor"] or list["ramp_exponent"]
         or list["speed_updateinterval"] or list["speed_max"] then
         if is_silent then
-            check_time_immediate()
+            check_time()
         end
         update_info_now()
     end
