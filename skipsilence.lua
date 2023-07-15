@@ -504,10 +504,10 @@ end
 local function handle_silence_msg(msg)
     if msg.prefix ~= "ffmpeg" then return end
     if msg.text:find("^silencedetect: silence_start: ") then
-        dprint("got silence start:", msg.text:gsub("\n$", ""))
+        dprint("got silence start:", (msg.text:gsub("\n$", "")))
         add_event(st, true)
     elseif msg.text:find("^silencedetect: silence_end: ") then
-        dprint("got silence end:", msg.text:gsub("\n$", ""))
+        dprint("got silence end:", (msg.text:gsub("\n$", "")))
         add_event(et, false)
     end
 end
