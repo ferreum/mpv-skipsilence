@@ -442,19 +442,15 @@ local function check_time_immediate()
     end
 end
 
-local function add_event(time, is_silent)
-    local prev = events[events_ilast]
-    if not prev or is_silent ~= prev.is_silent then
-        local i = events_ilast + 1
-        events[i] = {
-            recv_time = mp.get_time(),
-            time = time,
-            is_silent = is_silent,
-        }
-        events_ilast = i
-        if not is_paused then
+function schedule_check(time)
+    if check_time_timer == nil then
+        check_time_timer = mp.add_timeout(time, function()
             check_time_immediate()
-        end
+        end)
+    else
+        check_time_timer:kill()
+        check_time_timer.timeout = time
+        check_time_timer:resume()
     end
 end
 
@@ -499,6 +495,22 @@ local function handle_speed(name, speed)
     end
 end
 
+local function add_event(time, is_silent)
+    local prev = events[events_ilast]
+    if not prev or is_silent ~= prev.is_silent then
+        local i = events_ilast + 1
+        events[i] = {
+            recv_time = mp.get_time(),
+            time = time,
+            is_silent = is_silent,
+        }
+        events_ilast = i
+        if not is_paused then
+            check_time_immediate()
+        end
+    end
+end
+
 local function handle_silence_msg(msg)
     if msg.prefix ~= "ffmpeg" then return end
     if msg.text:find("^silencedetect: silence_start: ") then
@@ -507,17 +519,6 @@ local function handle_silence_msg(msg)
     elseif msg.text:find("^silencedetect: silence_end: ") then
         dprint("got silence end:", msg.text:gsub("\n$", ""))
         add_event(et, false)
-    end
-end
-
-local function check_reapply_filter()
-    if mp.get_property("af"):find("@"..detect_filter_label..":") then
-        if is_silent or events_count() > 0 then
-            clear_silence_state()
-        else
-            mp.commandv("af", "remove", "@"..detect_filter_label)
-            mp.commandv("af", "pre", get_silence_filter())
-        end
     end
 end
 
@@ -556,18 +557,6 @@ end
 local function handle_playback_restart()
     dprint("handle_playback_restart")
     clear_silence_state()
-end
-
-function schedule_check(time)
-    if check_time_timer == nil then
-        check_time_timer = mp.add_timeout(time, function()
-            check_time_immediate()
-        end)
-    else
-        check_time_timer:kill()
-        check_time_timer.timeout = time
-        check_time_timer:resume()
-    end
 end
 
 local function enable(flag)
@@ -634,6 +623,17 @@ end
 
 local function info(style)
     mp.osd_message(format_info(style or opts.infostyle))
+end
+
+local function check_reapply_filter()
+    if mp.get_property("af"):find("@"..detect_filter_label..":") then
+        if is_silent or events_count() > 0 then
+            clear_silence_state()
+        else
+            mp.commandv("af", "remove", "@"..detect_filter_label)
+            mp.commandv("af", "pre", get_silence_filter())
+        end
+    end
 end
 
 (require "mp.options").read_options(opts, nil, function(list)
