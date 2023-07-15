@@ -77,7 +77,7 @@ local opts = {
     threshold_db = -24,
     -- Minimum duration of silence to be detected, in seconds. This is
     -- measured in stream time, as if playback speed was 1.
-    threshold_duration = 0.2,
+    threshold_duration = 0.1,
     -- How long to wait before speedup. This is measured in real time, thus
     -- higher playback speeds would reduce the length of content skipped.
     startdelay = 0.05,
