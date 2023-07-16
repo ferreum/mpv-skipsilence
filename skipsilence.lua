@@ -172,7 +172,6 @@ local orig_speed = 1
 local is_silent = false
 local expected_speed = 1
 local last_speed_change_time = -1
-local pause_states = {}
 local is_paused = false
 
 local events_ifirst = 1
@@ -445,16 +444,11 @@ function schedule_check_time(time)
     end
 end
 
-local function handle_pause(name, value)
-    dprint("handle_pause", name, value)
-    pause_states[name] = value
-    is_paused = false
-    local k, v
-    for k, v in pairs(pause_states) do
-        if v then is_paused = true break end
-    end
-    stats_handle_pause(mp.get_time(), is_paused)
-    if is_paused then
+local function handle_pause(name, paused)
+    dprint("handle_pause", name, paused)
+    is_paused = paused
+    stats_handle_pause(mp.get_time(), paused)
+    if paused then
         if check_time_timer then
             check_time_timer:kill()
         end
@@ -561,9 +555,7 @@ local function enable(flag)
     mp.register_event("log-message", handle_silence_msg)
     mp.register_event("start-file", handle_start_file)
     mp.register_event("playback-restart", handle_playback_restart)
-    mp.observe_property("pause", "bool", handle_pause)
-    mp.observe_property("eof-reached", "bool", handle_pause)
-    mp.observe_property("paused-for-cache", "bool", handle_pause)
+    mp.observe_property("core-idle", "bool", handle_pause)
     mp.observe_property("speed", "number", handle_speed)
 end
 
