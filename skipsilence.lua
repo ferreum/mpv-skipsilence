@@ -112,7 +112,7 @@ local opts = {
     -- Noise reduction filter configuration.
     --
     -- This allows removing noise from the audio stream before the
-    -- silencedetect filter, allowing to speed up pauses in dialogues despite
+    -- silencedetect filter, allowing to speed up pauses in speed despite
     -- background noise. The output audio is unaffected by default.
     --
     -- Whether the detected audio signal should be preprocessed with arnndn.
@@ -162,6 +162,7 @@ local opts = {
     -- value according to what you use to change speed:
     -- - 'add' - add the difference to the normal speed
     -- - 'multiply' - multiply the normal speed with factor of change
+    -- If 'off', the script will immediately override the speed during silence.
     apply_speed_change = "off",
 
     debug = false,
@@ -565,7 +566,6 @@ local function enable(flag)
     mp.observe_property("paused-for-cache", "bool", handle_pause)
     mp.observe_property("speed", "number", handle_speed)
 end
-
 
 local function disable(opt_orig_speed)
     if not mp.get_property("af"):find("@"..detect_filter_label..":") then return end
