@@ -173,6 +173,7 @@ local is_silent = false
 local expected_speed = 1
 local last_speed_change_time = -1
 local is_paused = false
+local did_clear_after_seek = false
 
 local events_ifirst = 1
 local events_ilast = 0
@@ -541,7 +542,25 @@ end
 
 local function handle_playback_restart()
     dprint("handle_playback_restart")
+    -- avoid clearing events that were received between seek and restart
+    if not did_clear_after_seek then
+        clear_silence_state()
+    end
+    did_clear_after_seek = false
+end
+
+-- events on seek:
+-- 1. seek event
+-- 2. core-idle=true
+-- 3. seeking=true
+-- 4. (if target is silent) silence start msg
+-- 5. playback-restart event
+-- 6. core-idle=false
+-- 7. seeking=false
+local function handle_seek()
+    dprint("handle_seek")
     clear_silence_state()
+    did_clear_after_seek = true
 end
 
 local function enable(flag)
@@ -555,6 +574,7 @@ local function enable(flag)
     mp.register_event("log-message", handle_silence_msg)
     mp.register_event("start-file", handle_start_file)
     mp.register_event("playback-restart", handle_playback_restart)
+    mp.register_event("seek", handle_seek)
     mp.observe_property("core-idle", "bool", handle_pause)
     mp.observe_property("speed", "number", handle_speed)
 end
@@ -566,6 +586,7 @@ local function disable(opt_orig_speed)
     mp.unregister_event(handle_silence_msg)
     mp.unregister_event(handle_start_file)
     mp.unregister_event(handle_playback_restart)
+    mp.unregister_event(handle_seek)
     mp.unobserve_property(handle_pause)
     mp.unobserve_property(handle_speed)
     if check_time_timer ~= nil then
