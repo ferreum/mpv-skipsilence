@@ -436,6 +436,8 @@ local function check_time()
 end
 
 function schedule_check_time(time)
+    -- no scheduling while paused; will check on resume
+    if is_paused then return end
     if check_time_timer == nil then
         check_time_timer = mp.add_timeout(time, check_time)
     else
@@ -646,9 +648,7 @@ end
     end
     if list["ramp_constant"] or list["ramp_factor"] or list["ramp_exponent"]
         or list["speed_updateinterval"] or list["speed_max"] then
-        if is_silent then
-            check_time()
-        end
+        check_time()
         update_info_now()
     end
 end)
