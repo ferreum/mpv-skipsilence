@@ -630,12 +630,8 @@ end
 
 local function check_reapply_filter()
     if mp.get_property("af"):find("@"..detect_filter_label..":") then
-        if is_silent or events_count() > 0 then
-            clear_silence_state()
-        else
-            mp.commandv("af", "remove", "@"..detect_filter_label)
-            mp.commandv("af", "pre", get_silence_filter())
-        end
+        mp.commandv("af", "remove", "@"..detect_filter_label)
+        mp.commandv("af", "pre", get_silence_filter())
     end
 end
 
