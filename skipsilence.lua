@@ -172,6 +172,7 @@ local orig_speed = 1
 local is_silent = false
 local expected_speed = 1
 local last_speed_change_time = -1
+local filter_reapply_time = -1
 local is_paused = false
 local did_clear_after_seek = false
 
@@ -187,6 +188,14 @@ local function dprint(...)
     if opts.debug then
         print(("%.3f"):format(mp.get_time()), ...)
     end
+end
+
+-- like math.min with 2 args, but ignore nil
+local function take_lower(a, b)
+    if not a then return b end
+    if not b then return a end
+    if a < b then return a end
+    return b
 end
 
 local function get_silence_filter()
@@ -341,12 +350,23 @@ local function update_info_now()
     end
 end
 
+local function reapply_filter()
+    filter_reapply_time = mp.get_time()
+    mp.commandv("af", "remove", "@"..detect_filter_label)
+    mp.commandv("af", "pre", get_silence_filter())
+end
+
+local function check_reapply_filter()
+    if mp.get_property("af"):find("@"..detect_filter_label..":") then
+        reapply_filter()
+    end
+end
+
 local function clear_silence_state()
     if is_silent then
         stats_end_current(mp.get_time())
         mp.set_property("speed", orig_speed)
-        mp.commandv("af", "remove", "@"..detect_filter_label)
-        mp.commandv("af", "pre", get_silence_filter())
+        reapply_filter()
     end
     clear_events()
     is_silent = false
@@ -372,33 +392,48 @@ local function check_time()
     local new_speed = nil
     local did_change = is_silent
     local was_silent = is_silent
+    local next_delay = nil
 
     while true do
         local ev = get_next_event()
         if not ev then break end
 
-        -- leave time for gap end to arrive before speeding up
-        if ev.is_silent and opts.startdelay > 0 then
-            local remaining = opts.startdelay - (now - ev.recv_time)
-            if remaining > 0 and events_count() < 2 then
-                dprint("event is too recent; recheck in", remaining)
-                schedule_check_time(remaining)
-                break
+        local remaining = 0
+        if ev.is_silent ~= was_silent then
+            if ev.is_silent then
+                remaining = opts.startdelay - (now - ev.recv_time)
+            else
+                -- events on filter reapply:
+                -- 1. filters removed and added
+                -- 2. (if silent)
+                --    silence end message
+                -- 3. (if still silent for new filter)
+                --    silence start message
+                --
+                -- wait before stopping the gap after reapply to preserve
+                -- speed if playback is still silent
+                remaining = 0.05 - (now - ev.filter_cleanup_time)
             end
+        end
+        if remaining > 0 and events_count() < 2 then
+            dprint("recheck in", remaining)
+            next_delay = remaining
+            break
         end
 
         is_silent = ev.is_silent
         did_change = true
+        drop_event()
+    end
+    if is_silent ~= was_silent then
         if is_silent then
             stats_start_current(now, speed)
             dprint("silence start")
 
-            if not was_silent then
-                orig_speed = speed
-                if opts.alt_normal_speed >= 0 and math.abs(orig_speed - 1) < 0.001 then
-                    orig_speed = opts.alt_normal_speed
-                    new_speed = orig_speed
-                end
+            orig_speed = speed
+            if opts.alt_normal_speed >= 0 and math.abs(orig_speed - 1) < 0.001 then
+                orig_speed = opts.alt_normal_speed
+                new_speed = orig_speed
             end
         else
             stats_end_current(now)
@@ -406,18 +441,16 @@ local function check_time()
             dprint("silence end, saved:", get_saved_time(now, speed))
             new_speed = orig_speed
         end
-
-        drop_event()
     end
     if is_silent then
         local remaining = opts.speed_updateinterval - (now - last_speed_change_time)
         if remaining > 0 then
             dprint("last speed change too recent; recheck in", remaining)
-            schedule_check_time(remaining)
+            next_delay = take_lower(next_delay, remaining)
         else
             local length = stats_silence_length(now)
             new_speed = orig_speed * (opts.ramp_constant + (length * opts.ramp_factor) ^ opts.ramp_exponent)
-            schedule_check_time(opts.speed_updateinterval)
+            next_delay = take_lower(next_delay, opts.speed_updateinterval)
         end
         did_change = true
     end
@@ -429,7 +462,10 @@ local function check_time()
             last_speed_change_time = mp.get_time()
         end
     end
-    dprint("check_time: new_speed:", new_speed, "is_silent:", is_silent)
+    if next_delay then
+        schedule_check_time(next_delay)
+    end
+    dprint("check_time: new_speed:", new_speed, "is_silent:", is_silent, "next_delay:", next_delay)
     if did_change then
         update_info(now)
     end
@@ -491,6 +527,7 @@ local function add_event(time, is_silent)
             recv_time = mp.get_time(),
             time = time,
             is_silent = is_silent,
+            filter_cleanup_time = filter_reapply_time,
         }
         events_ilast = i
         if not is_paused then
@@ -502,6 +539,7 @@ end
 local function handle_silence_msg(msg)
     if msg.prefix ~= "ffmpeg" then return end
     if msg.text:find("^silencedetect: silence_start: ") then
+        filter_reapply_time = -1
         dprint("got silence start:", (msg.text:gsub("\n$", "")))
         add_event(st, true)
     elseif msg.text:find("^silencedetect: silence_end: ") then
@@ -628,13 +666,6 @@ end
 
 local function info(style)
     mp.osd_message(format_info(style or opts.infostyle))
-end
-
-local function check_reapply_filter()
-    if mp.get_property("af"):find("@"..detect_filter_label..":") then
-        mp.commandv("af", "remove", "@"..detect_filter_label)
-        mp.commandv("af", "pre", get_silence_filter())
-    end
 end
 
 (require "mp.options").read_options(opts, nil, function(list)
