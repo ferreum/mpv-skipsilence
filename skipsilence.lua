@@ -168,6 +168,7 @@ local opts = {
     debug = false,
 }
 
+local is_enabled = false
 local orig_speed = 1
 local is_silent = false
 local expected_speed = 1
@@ -321,8 +322,7 @@ local function format_info(style, now)
     if style == "compact" then
         return silence_stats
     end
-    local enabled = mp.get_property("af"):find("@"..detect_filter_label..":")
-    return "Status: "..(enabled and "enabled" or "disabled").."\n"
+    return "Status: "..(is_enabled and "enabled" or "disabled").."\n"
         ..("Threshold: %+gdB, %gs (+%gs)\n"):format(opts.threshold_db, opts.threshold_duration, opts.startdelay)
         .."Arnndn: "..(opts.arnndn_enable and opts.arnndn_modelpath ~= ""
                         and "enabled"..(opts.arnndn_output and " with output" or "") or "disabled").."\n"
@@ -352,12 +352,11 @@ end
 
 local function reapply_filter()
     filter_reapply_time = mp.get_time()
-    mp.commandv("af", "remove", "@"..detect_filter_label)
     mp.commandv("af", "pre", get_silence_filter())
 end
 
 local function check_reapply_filter()
-    if mp.get_property("af"):find("@"..detect_filter_label..":") then
+    if is_enabled then
         reapply_filter()
     end
 end
@@ -604,9 +603,10 @@ local function handle_seek()
 end
 
 local function enable(flag)
-    if mp.get_property("af"):find("@"..detect_filter_label..":") then return end
-    mp.commandv("af", "pre", get_silence_filter())
+    if is_enabled then return end
+    assert(mp.commandv("af", "pre", get_silence_filter()))
     if not mp.get_property("af"):find("@"..detect_filter_label..":") then return end
+    is_enabled = true
     mp.set_property_native("user-data/skipsilence/enabled", true)
     if flag ~= "no-osd" then
         mp.osd_message("skipsilence enabled")
@@ -620,15 +620,15 @@ local function enable(flag)
 end
 
 local function disable(opt_orig_speed)
-    if not mp.get_property("af"):find("@"..detect_filter_label..":") then return end
     mp.commandv("af", "remove", "@"..detect_filter_label)
-    mp.osd_message("skipsilence disabled")
     mp.unregister_event(handle_silence_msg)
     mp.unregister_event(handle_start_file)
     mp.unregister_event(handle_playback_restart)
     mp.unregister_event(handle_seek)
     mp.unobserve_property(handle_pause)
     mp.unobserve_property(handle_speed)
+    if not is_enabled then return end
+    mp.osd_message("skipsilence disabled")
     if check_time_timer ~= nil then
         check_time_timer:kill()
     end
@@ -647,6 +647,7 @@ local function disable(opt_orig_speed)
     end
     clear_events()
     is_silent = false
+    is_enabled = false
     mp.set_property_native("user-data/skipsilence/enabled", false)
     if opts.resync_threshold_droppedframes >= 0 then
         local drops = mp.get_property_number("frame-drop-count")
@@ -657,7 +658,7 @@ local function disable(opt_orig_speed)
 end
 
 local function toggle()
-    if mp.get_property("af"):find("@"..detect_filter_label..":") then
+    if is_enabled then
         disable()
     else
         enable()
