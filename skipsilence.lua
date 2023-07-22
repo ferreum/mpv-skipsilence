@@ -355,17 +355,10 @@ local function reapply_filter()
     mp.commandv("af", "pre", get_silence_filter())
 end
 
-local function check_reapply_filter()
-    if is_enabled then
-        reapply_filter()
-    end
-end
-
 local function clear_silence_state()
     if is_silent then
         stats_end_current(mp.get_time())
         mp.set_property("speed", orig_speed)
-        reapply_filter()
     end
     clear_events()
     is_silent = false
@@ -673,7 +666,9 @@ end
     if list['threshold_db'] or list['threshold_duration']
         or list["arnndn_enable"] or list["arnndn_modelpath"]
         or list["arnndn_output"] then
-        check_reapply_filter()
+        if is_enabled then
+            reapply_filter()
+        end
     end
     if list['infostyle'] then
         update_info_now()
