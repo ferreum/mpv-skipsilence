@@ -56,6 +56,7 @@
 --
 -- user-data/skipsilence/enabled - true/false according to enabled state
 -- user-data/skipsilence/info - the current info according to the infostyle option
+-- user-data/skipsilence/saved_total - the total time saved in seconds
 --
 -- These allow showing the state in osd like this:
 --
@@ -311,9 +312,7 @@ local function get_current_stats(now)
     return saved_total, period_current, saved
 end
 
-local function format_info(style, now)
-    local saved_total, period_current, saved =
-        get_current_stats(now or mp.get_time())
+local function format_info(style, saved_total, period_current, saved)
     if style == "total" then
         return ("Saved total: %.3fs"):format(saved_total)
     end
@@ -333,13 +332,15 @@ local function format_info(style, now)
 end
 
 local function update_info(now)
+    local saved_total, period_current, saved = get_current_stats(now)
+    mp.set_property("user-data/skipsilence/saved_total", ("%.3f"):format(saved_total))
     if opts.infostyle == "total" or opts.infostyle == "compact" or opts.infostyle == "verbose" then
         local s = speed_stats
         if opts.infostyle == "compact" and s.saved_total + s.saved_current == 0 and s.time == nil then
             return false
         end
-        mp.set_property_native("user-data/skipsilence/info",
-            "\n"..format_info(opts.infostyle, now))
+        local text = format_info(opts.infostyle, saved_total, period_current, saved)
+        mp.set_property("user-data/skipsilence/info", "\n"..text)
         return true
     end
     return false
@@ -671,7 +672,9 @@ local function toggle()
 end
 
 local function info(style)
-    mp.osd_message(format_info(style or opts.infostyle))
+    mp.osd_message(format_info(
+        style or opts.infostyle,
+        get_current_stats(mp.get_time())))
 end
 
 (require "mp.options").read_options(opts, nil, function(list)
@@ -694,7 +697,8 @@ end
     end
 end)
 
-mp.set_property_native("user-data/skipsilence/info", "")
+mp.set_property("user-data/skipsilence/info", "")
+mp.set_property("user-data/skipsilence/saved_total", "0.000")
 
 mp.enable_messages("v")
 mp.add_key_binding(nil, "enable", enable)
