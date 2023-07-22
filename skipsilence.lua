@@ -604,7 +604,10 @@ end
 local function enable(flag)
     if is_enabled then return end
     mp.commandv("af", "pre", get_silence_filter())
-    if not mp.get_property("af"):find("@"..detect_filter_label..":") then return end
+    if not mp.get_property("af"):find("@"..detect_filter_label..":") then
+        mp.osd_message("skipsilence enable failed: see console output")
+        return
+    end
     is_enabled = true
     mp.set_property_native("user-data/skipsilence/enabled", true)
     if flag ~= "no-osd" then
