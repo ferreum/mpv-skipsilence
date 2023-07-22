@@ -713,9 +713,6 @@ end
     end
 end)
 
-mp.set_property("user-data/skipsilence/info", "")
-mp.set_property("user-data/skipsilence/saved_total", "0.000")
-
 mp.enable_messages("v")
 mp.add_key_binding(nil, "enable", enable)
 mp.add_key_binding(nil, "disable", disable)
@@ -728,6 +725,7 @@ mp.add_key_binding(nil, "cycle-info-style", cycle_info_style, "repeatable")
 mp.add_key_binding(nil, "toggle-arnndn", function() toggle_option("arnndn_enable") end)
 mp.add_key_binding(nil, "toggle-arnndn-output", function() toggle_option("arnndn_output") end)
 
+update_info_now()
 if opts.enabled then
     enable("no-osd")
 end
