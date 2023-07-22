@@ -348,7 +348,7 @@ end
 
 local function update_info_now()
     if not update_info(mp.get_time()) then
-        mp.set_property_native("user-data/skipsilence/info", "")
+        mp.set_property("user-data/skipsilence/info", "")
     end
 end
 
@@ -365,7 +365,7 @@ end
 local function clear_silence_state()
     if is_silent then
         stats_end_current(mp.get_time())
-        mp.set_property("speed", orig_speed)
+        mp.set_property_number("speed", orig_speed)
     end
     clear_events()
     is_silent = false
@@ -457,7 +457,7 @@ local function check_time()
         local new_speed = math.min(new_speed, opts.speed_max)
         expected_speed = new_speed
         if new_speed ~= speed then
-            mp.set_property("speed", new_speed)
+            mp.set_property_number("speed", new_speed)
             last_speed_change_time = mp.get_time()
         end
     end
@@ -610,7 +610,7 @@ local function enable(flag)
         return
     end
     is_enabled = true
-    mp.set_property_native("user-data/skipsilence/enabled", true)
+    mp.set_property_bool("user-data/skipsilence/enabled", true)
     if flag ~= "no-osd" then
         mp.osd_message("skipsilence enabled")
     end
@@ -636,7 +636,7 @@ local function disable(opt_orig_speed)
     if reapply_filter_timer then
         reapply_filter_timer:kill()
     end
-    mp.set_property_native("user-data/skipsilence/enabled", false)
+    mp.set_property_bool("user-data/skipsilence/enabled", false)
     if not is_enabled then return end
     if opt_orig_speed then
         mp.set_property_number("speed", opt_orig_speed)
