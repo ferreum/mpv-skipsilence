@@ -688,7 +688,7 @@ local function info(style)
 end
 
 (require "mp.options").read_options(opts, nil, function(list)
-    if list["enabled"] and not opts.enabled then
+    if list["enabled"] and not opts.enabled and is_enabled then
         disable()
     end
     if list['threshold_db'] or list['threshold_duration']
@@ -708,7 +708,7 @@ end
         end
         update_info_now()
     end
-    if list["enabled"] and opts.enabled then
+    if list["enabled"] and opts.enabled and not is_enabled then
         enable()
     end
 end)
