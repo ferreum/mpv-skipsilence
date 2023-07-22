@@ -680,7 +680,9 @@ end
     end
     if list["ramp_constant"] or list["ramp_factor"] or list["ramp_exponent"]
         or list["speed_updateinterval"] or list["speed_max"] then
-        check_time()
+        if is_enabled then
+            check_time()
+        end
         update_info_now()
     end
 end)
