@@ -632,8 +632,8 @@ local function disable(opt_orig_speed)
     if reapply_filter_timer then
         reapply_filter_timer:kill()
     end
+    mp.set_property_native("user-data/skipsilence/enabled", false)
     if not is_enabled then return end
-    mp.osd_message("skipsilence disabled")
     if opt_orig_speed then
         mp.set_property_number("speed", opt_orig_speed)
     else
@@ -650,7 +650,7 @@ local function disable(opt_orig_speed)
     clear_events()
     is_silent = false
     is_enabled = false
-    mp.set_property_native("user-data/skipsilence/enabled", false)
+    mp.osd_message("skipsilence disabled")
     if opts.resync_threshold_droppedframes >= 0 then
         local drops = mp.get_property_number("frame-drop-count")
         if drops and drops >= opts.resync_threshold_droppedframes then
