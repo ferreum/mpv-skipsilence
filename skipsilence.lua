@@ -180,7 +180,7 @@ local expected_speed = 1
 local last_speed_change_time = -1
 local filter_reapply_time = -1
 local is_paused = false
-local did_clear_after_seek = false
+local did_clear_before_restart = false
 
 local events_ifirst = 1
 local events_ilast = 0
@@ -583,15 +583,16 @@ local function handle_start_file()
     clear_silence_state()
     stats_clear()
     update_info_now()
+    did_clear_before_restart = true
 end
 
 local function handle_playback_restart()
     dprint("handle_playback_restart")
     -- avoid clearing events that were received between seek and restart
-    if not did_clear_after_seek then
+    if not did_clear_before_restart then
         clear_silence_state()
     end
-    did_clear_after_seek = false
+    did_clear_before_restart = false
 end
 
 -- events on seek:
@@ -605,7 +606,7 @@ end
 local function handle_seek()
     dprint("handle_seek")
     clear_silence_state()
-    did_clear_after_seek = true
+    did_clear_before_restart = true
 end
 
 local function enable(flag)
