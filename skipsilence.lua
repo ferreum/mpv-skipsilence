@@ -340,7 +340,8 @@ local function update_info(now)
     mp.set_property("user-data/skipsilence/saved_total", ("%.3f"):format(saved_total))
     if opts.infostyle == "total" or opts.infostyle == "compact" or opts.infostyle == "verbose" then
         local s = speed_stats
-        if opts.infostyle == "compact" and s.saved_total + s.saved_current == 0 and s.time == nil then
+        if (opts.infostyle == "total" or opts.infostyle == "compact")
+            and s.saved_total + s.saved_current == 0 and s.time == nil then
             return false
         end
         local text = format_info(opts.infostyle, saved_total, period_current, saved)
