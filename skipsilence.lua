@@ -181,7 +181,8 @@ local events_ifirst = 1
 local events_ilast = 0
 local events = {}
 
-local check_time_timer
+local check_time_timer = nil
+local reapply_filter_timer = nil
 
 local detect_filter_label = mp.get_script_name() .. "_silencedetect"
 
@@ -351,8 +352,13 @@ local function update_info_now()
 end
 
 local function reapply_filter()
-    filter_reapply_time = mp.get_time()
-    mp.commandv("af", "pre", get_silence_filter())
+    if not reapply_filter_timer or not reapply_filter_timer:is_enabled() then
+        -- throttle with timer to avoid stalling playback with repeated calls
+        reapply_filter_timer = mp.add_timeout(0.2, function()
+            filter_reapply_time = mp.get_time()
+            mp.commandv("af", "pre", get_silence_filter())
+        end)
+    end
 end
 
 local function clear_silence_state()
@@ -620,11 +626,14 @@ local function disable(opt_orig_speed)
     mp.unregister_event(handle_seek)
     mp.unobserve_property(handle_pause)
     mp.unobserve_property(handle_speed)
-    if not is_enabled then return end
-    mp.osd_message("skipsilence disabled")
-    if check_time_timer ~= nil then
+    if check_time_timer then
         check_time_timer:kill()
     end
+    if reapply_filter_timer then
+        reapply_filter_timer:kill()
+    end
+    if not is_enabled then return end
+    mp.osd_message("skipsilence disabled")
     if opt_orig_speed then
         mp.set_property_number("speed", opt_orig_speed)
     else
