@@ -72,6 +72,10 @@
 -- 'script-opts/osc.conf' documentation.
 -- Use the prefix 'skipsilence' (unless the script was renamed).
 local opts = {
+    -- Whether skipsilence should be enabled by default. Can also be changed
+    -- at runtime and reflects the current enabled state.
+    enabled = false,
+
     -- The silence threshold in decibel. Anything quieter than this is
     -- detected as silence. Can be adjusted with the threshold-up,
     -- threshold-down bindings, and adjust-threshold-db script message.
@@ -547,18 +551,21 @@ local function handle_silence_msg(msg)
     end
 end
 
+local function set_option(opt_name, value)
+    mp.commandv("change-list", "script-opts", "append",
+        mp.get_script_name().."-"..opt_name.."="..value)
+end
+
 local function adjust_thresholdDB(change)
     local value = opts.threshold_db + change
-    mp.commandv("change-list", "script-opts", "append",
-        mp.get_script_name().."-threshold_db="..value)
+    set_option("threshold_db", tostring(value))
     mp.osd_message("silence threshold: "..value.."dB")
 end
 
 local function toggle_option(opt_name)
     local value = not opts[opt_name]
     local str = value and "yes" or "no"
-    mp.commandv("change-list", "script-opts", "append",
-        mp.get_script_name().."-"..opt_name.."="..str)
+    set_option(opt_name, str)
     mp.osd_message(mp.get_script_name().."-"..opt_name..": "..str)
 end
 
@@ -567,8 +574,7 @@ local function cycle_info_style(style)
         opts.infostyle == "total" and "compact" or (
         opts.infostyle == "compact" and "verbose" or (
         opts.infostyle == "verbose" and "off" or "total")))
-    mp.commandv("change-list", "script-opts", "append",
-        mp.get_script_name().."-infostyle="..value)
+    set_option("infostyle", value)
     mp.osd_message(mp.get_script_name().."-infostyle: "..value)
 end
 
@@ -606,6 +612,7 @@ local function enable(flag)
     if is_enabled then return end
     mp.commandv("af", "pre", get_silence_filter())
     if not mp.get_property("af"):find("@"..detect_filter_label..":") then
+        if opts.enabled then set_option("enabled", "no") end
         mp.osd_message("skipsilence enable failed: see console output")
         return
     end
@@ -620,10 +627,10 @@ local function enable(flag)
     mp.register_event("seek", handle_seek)
     mp.observe_property("core-idle", "bool", handle_pause)
     mp.observe_property("speed", "number", handle_speed)
+    set_option("enabled", "yes")
 end
 
 local function disable(opt_orig_speed)
-    mp.commandv("af", "remove", "@"..detect_filter_label)
     mp.unregister_event(handle_silence_msg)
     mp.unregister_event(handle_start_file)
     mp.unregister_event(handle_playback_restart)
@@ -638,6 +645,7 @@ local function disable(opt_orig_speed)
     end
     mp.set_property_bool("user-data/skipsilence/enabled", false)
     if not is_enabled then return end
+    mp.commandv("af", "remove", "@"..detect_filter_label)
     if opt_orig_speed then
         mp.set_property_number("speed", opt_orig_speed)
     else
@@ -654,6 +662,7 @@ local function disable(opt_orig_speed)
     clear_events()
     is_silent = false
     is_enabled = false
+    if opts.enabled then set_option("enabled", "no") end
     mp.osd_message("skipsilence disabled")
     if opts.resync_threshold_droppedframes >= 0 then
         local drops = mp.get_property_number("frame-drop-count")
@@ -678,6 +687,9 @@ local function info(style)
 end
 
 (require "mp.options").read_options(opts, nil, function(list)
+    if list["enabled"] and not opts.enabled then
+        disable()
+    end
     if list['threshold_db'] or list['threshold_duration']
         or list["arnndn_enable"] or list["arnndn_modelpath"]
         or list["arnndn_output"] then
@@ -695,6 +707,9 @@ end
         end
         update_info_now()
     end
+    if list["enabled"] and opts.enabled then
+        enable()
+    end
 end)
 
 mp.set_property("user-data/skipsilence/info", "")
@@ -711,5 +726,9 @@ mp.add_key_binding(nil, "info", info, "repeatable")
 mp.add_key_binding(nil, "cycle-info-style", cycle_info_style, "repeatable")
 mp.add_key_binding(nil, "toggle-arnndn", function() toggle_option("arnndn_enable") end)
 mp.add_key_binding(nil, "toggle-arnndn-output", function() toggle_option("arnndn_output") end)
+
+if opts.enabled then
+    enable("no-osd")
+end
 
 -- vim:set sw=4 sts=0 et tw=0:
