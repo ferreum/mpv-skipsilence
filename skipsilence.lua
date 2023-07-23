@@ -579,12 +579,15 @@ local function cycle_info_style(style)
     mp.osd_message(mp.get_script_name().."-infostyle: "..value)
 end
 
+-- called regardless of enabled state
 local function handle_start_file()
     dprint("handle_start_file")
-    clear_silence_state()
+    if is_enabled then
+        clear_silence_state()
+        did_clear_before_restart = true
+    end
     stats_clear()
     update_info_now()
-    did_clear_before_restart = true
 end
 
 local function handle_playback_restart()
@@ -624,7 +627,6 @@ local function enable(flag)
         mp.osd_message("skipsilence enabled")
     end
     mp.register_event("log-message", handle_silence_msg)
-    mp.register_event("start-file", handle_start_file)
     mp.register_event("playback-restart", handle_playback_restart)
     mp.register_event("seek", handle_seek)
     mp.observe_property("core-idle", "bool", handle_pause)
@@ -634,7 +636,6 @@ end
 
 local function disable(opt_orig_speed)
     mp.unregister_event(handle_silence_msg)
-    mp.unregister_event(handle_start_file)
     mp.unregister_event(handle_playback_restart)
     mp.unregister_event(handle_seek)
     mp.unobserve_property(handle_pause)
@@ -664,6 +665,7 @@ local function disable(opt_orig_speed)
     clear_events()
     is_silent = false
     is_enabled = false
+    did_clear_before_restart = false
     if opts.enabled then set_option("enabled", "no") end
     mp.osd_message("skipsilence disabled")
     if opts.resync_threshold_droppedframes >= 0 then
@@ -725,6 +727,7 @@ mp.add_key_binding(nil, "info", info, "repeatable")
 mp.add_key_binding(nil, "cycle-info-style", cycle_info_style, "repeatable")
 mp.add_key_binding(nil, "toggle-arnndn", function() toggle_option("arnndn_enable") end)
 mp.add_key_binding(nil, "toggle-arnndn-output", function() toggle_option("arnndn_output") end)
+mp.register_event("start-file", handle_start_file)
 
 update_info_now()
 if opts.enabled then
