@@ -117,7 +117,7 @@ local opts = {
     -- Noise reduction filter configuration.
     --
     -- This allows removing noise from the audio stream before the
-    -- silencedetect filter, allowing to speed up pauses in speed despite
+    -- silencedetect filter, allowing to speed up pauses in speech despite
     -- background noise. The output audio is unaffected by default.
     --
     -- Whether the detected audio signal should be preprocessed with arnndn.
@@ -163,8 +163,8 @@ local opts = {
     infostyle = "off",
 
     -- How to apply external speed change during silence.
-    -- This to makes speed change bindings work during fast forward. Set the
-    -- value according to what you use to change speed:
+    -- This makes speed change bindings work during fast forward. Set the
+    -- value according to what command you use to change speed:
     -- - 'add' - add the difference to the normal speed
     -- - 'multiply' - multiply the normal speed with factor of change
     -- If 'off', the script will immediately override the speed during silence.
