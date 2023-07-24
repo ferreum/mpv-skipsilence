@@ -180,7 +180,6 @@ local expected_speed = 1
 local last_speed_change_time = -1
 local filter_reapply_time = -1
 local is_paused = false
-local did_clear_before_restart = false
 
 local events_ifirst = 1
 local events_ilast = 0
@@ -584,19 +583,9 @@ local function handle_start_file()
     dprint("handle_start_file")
     if is_enabled then
         clear_silence_state()
-        did_clear_before_restart = true
     end
     stats_clear()
     update_info_now()
-end
-
-local function handle_playback_restart()
-    dprint("handle_playback_restart")
-    -- avoid clearing events that were received between seek and restart
-    if not did_clear_before_restart then
-        clear_silence_state()
-    end
-    did_clear_before_restart = false
 end
 
 -- events on seek:
@@ -610,7 +599,6 @@ end
 local function handle_seek()
     dprint("handle_seek")
     clear_silence_state()
-    did_clear_before_restart = true
 end
 
 local function enable(flag)
@@ -627,7 +615,6 @@ local function enable(flag)
         mp.osd_message("skipsilence enabled")
     end
     mp.register_event("log-message", handle_silence_msg)
-    mp.register_event("playback-restart", handle_playback_restart)
     mp.register_event("seek", handle_seek)
     mp.observe_property("core-idle", "bool", handle_pause)
     mp.observe_property("speed", "number", handle_speed)
@@ -636,7 +623,6 @@ end
 
 local function disable(opt_orig_speed)
     mp.unregister_event(handle_silence_msg)
-    mp.unregister_event(handle_playback_restart)
     mp.unregister_event(handle_seek)
     mp.unobserve_property(handle_pause)
     mp.unobserve_property(handle_speed)
@@ -665,7 +651,6 @@ local function disable(opt_orig_speed)
     clear_events()
     is_silent = false
     is_enabled = false
-    did_clear_before_restart = false
     if opts.enabled then set_option("enabled", "no") end
     mp.osd_message("skipsilence disabled")
     if opts.resync_threshold_droppedframes >= 0 then
