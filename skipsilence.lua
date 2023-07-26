@@ -19,7 +19,7 @@
 --   (resync_threshold_droppedframes option).
 -- - Workaround for clicks during speed changes (alt_normal_speed option).
 -- - Saved time estimation.
--- - osd-msg integration (with user-data, mpv 0.35 dev build and above only).
+-- - osd-msg integration (with user-data, mpv 0.36 and above only).
 --
 -- Default bindings:
 --
