@@ -438,6 +438,7 @@ local function check_time()
                 orig_speed = opts.alt_normal_speed
                 new_speed = orig_speed
             end
+            last_speed_change_time = -1
         else
             stats_end_current(now)
 
@@ -454,6 +455,7 @@ local function check_time()
             local length = stats_silence_length(now)
             new_speed = orig_speed * (opts.ramp_constant + (length * opts.ramp_factor) ^ opts.ramp_exponent)
             next_delay = take_lower(next_delay, opts.speed_updateinterval)
+            last_speed_change_time = now
         end
         did_change = true
     end
@@ -462,7 +464,6 @@ local function check_time()
         expected_speed = new_speed
         if new_speed ~= speed then
             mp.set_property_number("speed", new_speed)
-            last_speed_change_time = mp.get_time()
         end
     end
     if next_delay then
