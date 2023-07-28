@@ -454,9 +454,7 @@ local function check_time()
         else
             local length = stats_silence_length(now)
             new_speed = orig_speed * (opts.ramp_constant + (length * opts.ramp_factor) ^ opts.ramp_exponent)
-            if new_speed <= opts.speed_max then
-                next_delay = take_lower(next_delay, opts.speed_updateinterval)
-            end
+            next_delay = take_lower(next_delay, opts.speed_updateinterval)
             last_speed_change_time = now
         end
         did_change = true
