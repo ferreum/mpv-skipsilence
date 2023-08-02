@@ -63,28 +63,31 @@ Bind it to a key in `input.conf`:
 
     # very smooth speed increase, up to 3x
     [skipsilence-smooth]
-    script-opts-append=skipsilence-ramp_constant=1.1
-    script-opts-append=skipsilence-ramp_factor=0.25
-    script-opts-append=skipsilence-ramp_exponent=1.15
+    script-opts-append=skipsilence-ramp_constant=1
+    script-opts-append=skipsilence-ramp_factor=0.4
+    script-opts-append=skipsilence-ramp_exponent=1.45
     script-opts-append=skipsilence-speed_max=3
-    script-opts-append=skipsilence-speed_updateinterval=0.25
-    script-opts-append=skipsilence-startdelay=0.2
+    script-opts-append=skipsilence-speed_updateinterval=0.05
+    script-opts-append=skipsilence-startdelay=0
+    script-opts-append=skipsilence-threshold_duration=0.25
 
     # very aggressive skipping, will destroy audio-video sync,
     # tends to make it hard to listen
     [skipsilence-extreme]
-    script-opts-append=skipsilence-ramp_constant=2
-    script-opts-append=skipsilence-ramp_factor=1.5
-    script-opts-append=skipsilence-ramp_exponent=2
+    script-opts-append=skipsilence-ramp_constant=1.75
+    script-opts-append=skipsilence-ramp_factor=4
+    script-opts-append=skipsilence-ramp_exponent=0.9
     script-opts-append=skipsilence-speed_max=6
-    script-opts-append=skipsilence-speed_updateinterval=0.1
+    script-opts-append=skipsilence-speed_updateinterval=0.05
     script-opts-append=skipsilence-startdelay=0
+    script-opts-append=skipsilence-threshold_duration=0.05
 
     # long wait (1s) before speeding up quickly
     [skipsilence-patient]
-    script-opts-append=skipsilence-ramp_constant=1.5
-    script-opts-append=skipsilence-ramp_factor=1
-    script-opts-append=skipsilence-ramp_exponent=1.2
+    script-opts-append=skipsilence-ramp_constant=1.25
+    script-opts-append=skipsilence-ramp_factor=3
+    script-opts-append=skipsilence-ramp_exponent=0.9
     script-opts-append=skipsilence-speed_max=4
-    script-opts-append=skipsilence-speed_updateinterval=0.25
-    script-opts-append=skipsilence-startdelay=1
+    script-opts-append=skipsilence-speed_updateinterval=0.05
+    script-opts-append=skipsilence-startdelay=0
+    script-opts-append=skipsilence-threshold_duration=1
