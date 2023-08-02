@@ -8,8 +8,16 @@ Main repository: https://codeberg.org/ferreum/mpv-skipsilence/
 Based on the script https://gist.github.com/bitingsock/e8a56446ad9c1ed92d872aeb38edf124
 
 This is similar to the NewPipe app's built-in "Fast-forward during silence"
-feature. The main caveat is that audio-video is desynchronized very easily.
-For audio-only or audio-focused playback, it works very well.
+feature.
+
+The main caveat is that audio-video is desynchronized very easily. The problem
+has been found in scaletempo2: see the corresponding mpv
+[issue](https://github.com/mpv-player/mpv/issues/12028). Prefer small, frequent
+speed changes over large steps to reduce the problem. The scaletempo and
+rubberband filters do not desynchronize, but usually provide worse quality for
+speech.
+
+For audio-only or audio-focused playback, it already works very well.
 
 ## Features:
 
