@@ -514,7 +514,7 @@ local function handle_speed(name, speed)
         stats_accumulate(mp.get_time(), speed)
     end
     if math.abs(speed - expected_speed) > 0.01 then
-        local do_check = check_time_timer and check_time_timer:is_enabled()
+        local do_check = false
         dprint("handle_speed: external speed change: got", speed, "instead of", expected_speed)
         if is_silent then
             if opts.apply_speed_change == "add" then
@@ -525,7 +525,9 @@ local function handle_speed(name, speed)
                 do_check = true
             end
         end
+        expected_speed = speed
         if do_check then
+            last_speed_change_time = -1
             check_time()
         end
     end
