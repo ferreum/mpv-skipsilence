@@ -11,8 +11,8 @@ This is similar to the NewPipe app's built-in "Fast-forward during silence"
 feature.
 
 The main caveat is that audio-video is desynchronized very easily. The problem
-has been found in scaletempo2: see the corresponding mpv
-[issue](https://github.com/mpv-player/mpv/issues/12028). Prefer small, frequent
+has been found in scaletempo2: see the corresponding [mpv issue
+#12028](https://github.com/mpv-player/mpv/issues/12028). Prefer small, frequent
 speed changes over large steps to reduce the problem. The scaletempo and
 rubberband filters do not desynchronize, but usually provide worse quality for
 speech.
