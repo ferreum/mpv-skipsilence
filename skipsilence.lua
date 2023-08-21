@@ -552,11 +552,11 @@ end
 
 local function handle_silence_msg(msg)
     if msg.prefix ~= "ffmpeg" then return end
-    if msg.text:find("^silencedetect: silence_start: ") then
+    if msg.text:find("silencedetect: silence_start: ", 1, true) == 1 then
         filter_reapply_time = -1
         dprint("got silence start:", (msg.text:gsub("\n$", "")))
         add_event(st, true)
-    elseif msg.text:find("^silencedetect: silence_end: ") then
+    elseif msg.text:find("silencedetect: silence_end: ", 1, true) == 1 then
         dprint("got silence end:", (msg.text:gsub("\n$", "")))
         add_event(et, false)
     end
@@ -615,7 +615,7 @@ end
 local function enable(flag)
     if is_enabled then return end
     mp.commandv("af", "pre", get_silence_filter())
-    if not mp.get_property("af"):find("@"..detect_filter_label..":") then
+    if not mp.get_property("af"):find("@"..detect_filter_label..":", 1, true) then
         if opts.enabled then set_option("enabled", "no") end
         mp.osd_message("skipsilence enable failed: see console output")
         return
