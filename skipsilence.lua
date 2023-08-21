@@ -533,13 +533,12 @@ local function handle_speed(name, speed)
     end
 end
 
-local function add_event(time, is_silent)
+local function add_event(is_silent)
     local prev = events[events_ilast]
     if not prev or is_silent ~= prev.is_silent then
         local i = events_ilast + 1
         events[i] = {
             recv_time = mp.get_time(),
-            time = time,
             is_silent = is_silent,
             filter_cleanup_time = filter_reapply_time,
         }
@@ -555,10 +554,10 @@ local function handle_silence_msg(msg)
     if msg.text:find("silencedetect: silence_start: ", 1, true) == 1 then
         filter_reapply_time = -1
         dprint("got silence start:", (msg.text:gsub("\n$", "")))
-        add_event(st, true)
+        add_event(true)
     elseif msg.text:find("silencedetect: silence_end: ", 1, true) == 1 then
         dprint("got silence end:", (msg.text:gsub("\n$", "")))
-        add_event(et, false)
+        add_event(false)
     end
 end
 
