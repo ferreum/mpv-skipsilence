@@ -43,6 +43,7 @@
 -- threshold-down - decrease threshold_db by 1 (reduce amount skipped)
 -- threshold-up - increase threshold_db by 1 (increase amount skipped)
 -- info - show state info in osd
+-- reset-total - reset total saved time statistic
 -- cycle-info-style - cycle the infostyle option
 -- toggle-arnndn - toggle the arnndn_enable option
 -- toggle-arnndn-output - toggle the arnndn_output option
@@ -694,6 +695,11 @@ local function info(style)
         get_current_stats(mp.get_time())))
 end
 
+local function reset_total_saved_time()
+    total_saved_time = 0
+    update_info_now()
+end
+
 (require "mp.options").read_options(opts, nil, function(list)
     if list["enabled"] and not opts.enabled and is_enabled then
         disable()
@@ -729,6 +735,7 @@ mp.add_key_binding("F3", "threshold-down", function() adjust_thresholdDB(-1) end
 mp.add_key_binding("F4", "threshold-up", function() adjust_thresholdDB(1) end, "repeatable")
 mp.add_key_binding(nil, "info", info, "repeatable")
 mp.add_key_binding(nil, "cycle-info-style", cycle_info_style, "repeatable")
+mp.add_key_binding(nil, "reset-total", reset_total_saved_time)
 mp.add_key_binding(nil, "toggle-arnndn", function() toggle_option("arnndn_enable") end)
 mp.add_key_binding(nil, "toggle-arnndn-output", function() toggle_option("arnndn_output") end)
 mp.register_event("start-file", handle_start_file)
