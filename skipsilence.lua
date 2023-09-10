@@ -60,6 +60,20 @@
 -- info [<style>]
 --      Show state as osd message. If style is specified, use it instead of
 --      the infostyle option. Defaults to "verbose" if "off".
+-- adjust-speed add|multiply <n>
+--      During silence, adjust the base speed by adding it to or multiplying
+--      it with n. This allows changing speed more reliably than the
+--      apply_speed_change option.
+--
+--      Usage:
+--      - Ensure that apply_speed_change is 'off' (default)
+--      - Add an adjust-speed message to every speed change binding like so:
+--
+--          } multiply speed 2; script-message-to skipsilence adjust-speed multiply 2
+--          ] add speed 0.1; script-message-to skipsilence adjust-speed add 0.1
+--
+--      This is designed such that these bindings still work without
+--      skipsilence being loaded.
 --
 -- User-data (mpv 0.36 and above):
 --
@@ -182,7 +196,9 @@ local opts = {
     -- value according to what command you use to change speed:
     -- - 'add' - add the difference to the normal speed
     -- - 'multiply' - multiply the normal speed with factor of change
-    -- If 'off', the script will immediately override the speed during silence.
+    -- If 'off', the script will override the speed during silence.
+    -- Note: this option is unreliable in cases where the script changes speed
+    -- at the exact same time. Prefer the adjust-speed message instead.
     apply_speed_change = "off",
 
     debug = false,
@@ -579,6 +595,25 @@ local function adjust_thresholdDB(change)
     mp.osd_message("silence threshold: "..value.."dB")
 end
 
+local function adjust_speed(method, change)
+    local change = tonumber(change)
+    if method ~= 'add' and method ~= 'multiply' or not change then
+        local msg = require "mp.msg"
+        msg.error("invalid arguments; usage: adjust-speed add|multiply <number>")
+        return
+    end
+
+    if is_silent then
+        if method == 'add' then
+            orig_speed = orig_speed + change
+        elseif method == 'multiply' then
+            orig_speed = orig_speed * change
+        end
+        last_speed_change_time = -1
+        check_time()
+    end
+end
+
 local function toggle_option(opt_name)
     local value = not opts[opt_name]
     local str = value and "yes" or "no"
@@ -733,6 +768,7 @@ mp.add_key_binding("F2", "toggle", toggle)
 mp.register_script_message("adjust-threshold-db", adjust_thresholdDB)
 mp.add_key_binding("F3", "threshold-down", function() adjust_thresholdDB(-1) end, "repeatable")
 mp.add_key_binding("F4", "threshold-up", function() adjust_thresholdDB(1) end, "repeatable")
+mp.register_script_message("adjust-speed", adjust_speed, "repeatable")
 mp.add_key_binding(nil, "info", info, "repeatable")
 mp.add_key_binding(nil, "cycle-info-style", cycle_info_style)
 mp.add_key_binding(nil, "reset-total", reset_total_saved_time)
