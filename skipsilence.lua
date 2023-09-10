@@ -48,7 +48,7 @@
 -- toggle-arnndn - toggle the arnndn_enable option
 -- toggle-arnndn-output - toggle the arnndn_output option
 --
--- Script messages (use with 'script-message-to skipsilence <msg> ...':
+-- Script messages (use with 'script-message-to skipsilence <msg> ...'):
 --
 -- adjust-threshold-db <n>
 --      Adjust threshold_db by n.
@@ -61,7 +61,7 @@
 --      Show state as osd message. If style is specified, use it instead of
 --      the infostyle option. Defaults to "verbose" if "off".
 --
--- User-data (mpv 0.35 dev version and above):
+-- User-data (mpv 0.36 and above):
 --
 -- user-data/skipsilence/enabled - true/false according to enabled state
 -- user-data/skipsilence/info - the current info according to the infostyle option
