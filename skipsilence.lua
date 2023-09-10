@@ -170,6 +170,12 @@ local opts = {
     -- - 'verbose' (show most information).
     infostyle = "off",
 
+    -- When to reset the total saved time.
+    -- May be one of
+    -- - 'file-start' (when a new file starts)
+    -- - 'never' (do not reset total)
+    reset_total = "file-start",
+
     -- How to apply external speed change during silence.
     -- This makes speed change bindings work during fast forward. Set the
     -- value according to what command you use to change speed:
@@ -188,6 +194,7 @@ local expected_speed = 1
 local last_speed_change_time = -1
 local filter_reapply_time = -1
 local is_paused = false
+local total_saved_time = 0
 
 local events_ifirst = 1
 local events_ilast = 0
@@ -247,7 +254,6 @@ end
 local speed_stats
 local function stats_clear()
     speed_stats = {
-        saved_total = 0,
         saved_current = 0,
         period_current = 0,
         silence_start_time = 0,
@@ -290,7 +296,7 @@ end
 local function stats_end_current(now)
     local s = speed_stats
     stats_accumulate(now, s.speed)
-    s.saved_total = s.saved_total + s.saved_current
+    total_saved_time = total_saved_time + s.saved_current
     s.silence_start_time = nil
     s.time = nil
 end
@@ -319,7 +325,7 @@ end
 local function get_current_stats(now)
     local s = speed_stats
     local saved, period_current = get_saved_time(now)
-    local saved_total = s.saved_total + (s.time and saved or 0)
+    local saved_total = total_saved_time + (s.time and saved or 0)
     return saved_total, period_current, saved
 end
 
@@ -348,7 +354,7 @@ local function update_info(now)
     if opts.infostyle == "total" or opts.infostyle == "compact" or opts.infostyle == "verbose" then
         local s = speed_stats
         if (opts.infostyle == "total" or opts.infostyle == "compact")
-            and s.saved_total + s.saved_current == 0 and s.time == nil then
+            and saved_total + s.saved_current == 0 and s.time == nil then
             return false
         end
         local text = format_info(opts.infostyle, saved_total, period_current, saved)
@@ -595,6 +601,9 @@ local function handle_start_file()
         clear_silence_state()
     end
     stats_clear()
+    if opts.reset_total == 'file-start' then
+        total_saved_time = 0
+    end
     update_info_now()
 end
 
