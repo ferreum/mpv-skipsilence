@@ -54,9 +54,12 @@
 --      Adjust threshold_db by n.
 -- enable [no-osd]
 --      Enable the script. Passing 'no-osd' suppresses the osd message.
--- disable [<speed>]
+-- disable [<speed>] [no-osd]
 --      Disable the script. If speed is specified, set the playback speed to
---      the given value instead of the normal playback speed.
+--      the given value instead of the normal playback speed. Passing 'no-osd'
+--      suppresses the osd message.
+-- toggle [no-osd]
+--      Toggle the script. Passing 'no-osd' suppresses the osd message.
 -- info [<style>]
 --      Show state as osd message. If style is specified, use it instead of
 --      the infostyle option. Defaults to "verbose" if "off".
@@ -203,6 +206,8 @@ local opts = {
 
     debug = false,
 }
+
+local msg = require "mp.msg"
 
 local is_enabled = false
 local orig_speed = 1
@@ -598,7 +603,6 @@ end
 local function adjust_speed(method, change)
     local change = tonumber(change)
     if method ~= 'add' and method ~= 'multiply' or not change then
-        local msg = require "mp.msg"
         msg.error("invalid arguments; usage: adjust-speed add|multiply <number>")
         return
     end
@@ -657,6 +661,8 @@ local function handle_seek()
 end
 
 local function enable(flag)
+    local no_osd = flag == "no-osd"
+
     if is_enabled then return end
     mp.commandv("af", "pre", get_silence_filter())
     if not mp.get_property("af"):find("@"..detect_filter_label..":", 1, true) then
@@ -666,7 +672,7 @@ local function enable(flag)
     end
     is_enabled = true
     mp.set_property_bool("user-data/skipsilence/enabled", true)
-    if flag ~= "no-osd" then
+    if not no_osd then
         mp.osd_message("skipsilence enabled")
     end
     mp.register_event("log-message", handle_silence_msg)
@@ -676,7 +682,21 @@ local function enable(flag)
     set_option("enabled", "yes")
 end
 
-local function disable(opt_orig_speed)
+local function disable(arg1, arg2)
+    local no_osd = false
+    local opt_orig_speed = nil
+    if arg1 == "no-osd" then
+        no_osd = true
+    else
+        opt_orig_speed = tonumber(arg1)
+        if not opt_orig_speed and arg1 then
+            msg.warn("invalid number:", arg1)
+        end
+        if arg2 == "no-osd" then
+            no_osd = true
+        end
+    end
+
     mp.unregister_event(handle_silence_msg)
     mp.unregister_event(handle_seek)
     mp.unobserve_property(handle_pause)
@@ -707,7 +727,9 @@ local function disable(opt_orig_speed)
     is_silent = false
     is_enabled = false
     if opts.enabled then set_option("enabled", "no") end
-    mp.osd_message("skipsilence disabled")
+    if not no_osd then
+        mp.osd_message("skipsilence disabled")
+    end
     if opts.resync_threshold_droppedframes >= 0 then
         local drops = mp.get_property_number("frame-drop-count")
         if drops and drops >= opts.resync_threshold_droppedframes then
@@ -716,11 +738,15 @@ local function disable(opt_orig_speed)
     end
 end
 
-local function toggle()
+local function toggle(flag)
+    local arg
+    if flag == "no-osd" then
+        arg = "no-osd"
+    end
     if is_enabled then
-        disable()
+        disable(arg)
     else
-        enable()
+        enable(arg)
     end
 end
 
@@ -737,7 +763,7 @@ end
 
 (require "mp.options").read_options(opts, nil, function(list)
     if list["enabled"] and not opts.enabled and is_enabled then
-        disable()
+        disable("no-osd")
     end
     if list['threshold_db'] or list['threshold_duration']
         or list["arnndn_enable"] or list["arnndn_modelpath"]
@@ -757,7 +783,7 @@ end
         update_info_now()
     end
     if list["enabled"] and opts.enabled and not is_enabled then
-        enable()
+        enable("no-osd")
     end
 end)
 
