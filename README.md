@@ -60,6 +60,20 @@ above for user-data):
     profile-restore=copy-equal
     video-sync=audio
 
+### Fix clicking sounds/gaps when switching to and from 1x speed
+
+In the default configuration, mpv automatically inserts scaletempo2 filter when
+changing speed and removes it when returning to 1x playback speed. This often
+causes clicks in audio playback. To prevent this, add `scaletempo2` to the `af`
+filter list explicitly:
+
+    af-add=scaletempo2
+
+In mpv 0.36 and below, the scaletempo2 filter itself additionally caused
+similar artifacts when switching to and from 1x speed. This has been fixed in
+the current mpv master branch. The `alt_normal_speed` option of this script
+helps to work around this in older versions.
+
 ### Profiles
 
 Mpv's profiles can be used to switch between different presets. Create profiles
