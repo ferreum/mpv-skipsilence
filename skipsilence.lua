@@ -8,14 +8,12 @@
 -- This is similar to the NewPipe app's built-in "Fast-forward during silence"
 -- feature.
 --
--- The main caveat is that audio-video is desynchronized very easily. The
--- problem has been found in scaletempo2: see the corresponding mpv
--- [issue](https://github.com/mpv-player/mpv/issues/12028). Prefer small,
--- frequent speed changes over large steps to reduce the problem. The
--- scaletempo and rubberband filters do not desynchronize, but usually
--- provide worse quality for speech.
---
--- For audio-only or audio-focused playback, it already works very well.
+-- Note: In mpv version 0.36 and below, the `scaletempo2` filter (default since
+-- mpv version 0.34) caused audio-video de-synchronization when changing speed
+-- a lot. See [mpv issue #12028](https://github.com/mpv-player/mpv/issues/12028).
+-- Small, frequent speed changes instead of large steps may help to reduce this
+-- problem. The scaletempo and rubberband filters didn't have this problem, but
+-- have different audio quality characteristics.
 --
 -- Features:
 -- - Parameterized speedup ramp, allowing profiles for different kinds of
@@ -23,9 +21,10 @@
 -- - Noise reduction of the detected signal. This allows to speed up
 --   pauses in speech despite background noise. The output audio is
 --   unaffected by default (arnndn_* options).
--- - Workaround for audio-video desynchronization
---   (resync_threshold_droppedframes option).
--- - Workaround for clicks during speed changes (alt_normal_speed option).
+-- - Workaround for scaletempo2 audio-video desynchronization in mpv 0.36 and
+--   below (resync_threshold_droppedframes option).
+-- - Workaround for clicks during speed changes with scaletempo2 in mpv 0.36
+--   and below (alt_normal_speed option).
 -- - Saved time estimation.
 -- - osd-msg integration (with user-data, mpv 0.36 and above only).
 --
