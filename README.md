@@ -29,7 +29,8 @@ feature.
 - Workaround for clicks during speed changes with scaletempo2 in mpv 0.36 and
   below (`alt_normal_speed` option).
 - Saved time estimation.
-- osd-msg integration (with user-data, mpv 0.36 and above only).
+- Integration with osd-msg, auto profiles, etc. (with user-data, mpv 0.36 and
+  above only).
 
 ## Default bindings
 
@@ -41,10 +42,28 @@ feature.
 
 For detailed usage check the comments in the [script](skipsilence.lua).
 
-## Profiles
+## Recommendations
 
-Mpv's named profiles can be used to switch between different presets. Create
-profiles in `mpv.conf` and apply them with the `apply-profile` command.
+### Temporarily disable display sync
+
+When using `video-sync=display-*`, speed changes tend to cause increased video
+lag. Because display sync is less useful while speed keeps changing, it's
+recommended to use `video-sync=audio` (the default) while this script is
+active. This results in smoother video playback during speed transitions.
+
+The following profile can be used to automatically switch to `video-sync=audio`
+when skipsilence is enabled and restore it when disabled (requires mpv 0.36 or
+above for user-data):
+
+    [auto-skipsilence-videosync]
+    profile-cond=get("user-data/skipsilence/enabled")
+    profile-restore=copy-equal
+    video-sync=audio
+
+### Profiles
+
+Mpv's profiles can be used to switch between different presets. Create profiles
+in `mpv.conf` and apply them with the `apply-profile` command.
 
     [skipsilence-default]
     script-opts-append=skipsilence-ramp_constant=1.5
@@ -58,7 +77,7 @@ Bind it to a key in `input.conf`:
 
     F5 script-message-to skipsilence enable no-osd; apply-profile skipsilence-default; show-text "skipsilence profile: default"
 
-### Profile suggestions
+#### Examples
 
     # very smooth speed increase, up to 3x
     [skipsilence-smooth]

@@ -26,7 +26,8 @@
 -- - Workaround for clicks during speed changes with scaletempo2 in mpv 0.36
 --   and below (alt_normal_speed option).
 -- - Saved time estimation.
--- - osd-msg integration (with user-data, mpv 0.36 and above only).
+-- - Integration with osd-msg, auto profiles, etc. (with user-data, mpv 0.36
+--   and above only).
 --
 -- Default bindings:
 --
