@@ -103,8 +103,7 @@ Bind it to a key in `input.conf`:
     script-opts-append=skipsilence-startdelay=0
     script-opts-append=skipsilence-threshold_duration=0.25
 
-    # very aggressive skipping, will destroy audio-video sync,
-    # tends to make it hard to listen
+    # very aggressive skipping, can make it hard to listen
     [skipsilence-extreme]
     script-opts-append=skipsilence-ramp_constant=1.75
     script-opts-append=skipsilence-ramp_factor=4
