@@ -74,6 +74,13 @@ similar artifacts when switching to and from 1x speed. This has been fixed in
 the current mpv master branch. The `alt_normal_speed` option of this script
 helps to work around this in older versions.
 
+### Audio above 4x playback speed
+
+By default, scaletempo2 produces silence above 4x playback speed. To enable
+audio at higher speed, the limit can be increased like this:
+
+    af-add=scaletempo2=max-speed=8.0
+
 ### Profiles
 
 Mpv's profiles can be used to switch between different presets. Create profiles
