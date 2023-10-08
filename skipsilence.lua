@@ -63,10 +63,10 @@
 -- info [<style>]
 --      Show state as osd message. If style is specified, use it instead of
 --      the infostyle option. Defaults to "verbose" if "off".
--- adjust-speed add|multiply <n>
---      During silence, adjust the base speed by adding it to or multiplying
---      it with n. This allows changing speed more reliably than the
---      apply_speed_change option.
+-- adjust-speed add|multiply|set <n>
+--      During silence, adjust the base speed by adding it to n, multiplying
+--      it with n, or setting it to n. This allows changing speed more
+--      reliably than the apply_speed_change option.
 --
 --      Usage:
 --      - Ensure that apply_speed_change is 'off' (default)
@@ -74,6 +74,7 @@
 --
 --          } multiply speed 2; script-message-to skipsilence adjust-speed multiply 2
 --          ] add speed 0.1; script-message-to skipsilence adjust-speed add 0.1
+--          X set speed 1; script-message-to skipsilence adjust-speed set 1
 --
 --      This is designed such that these bindings still work without
 --      skipsilence being loaded.
@@ -600,18 +601,20 @@ local function adjust_thresholdDB(change)
     mp.osd_message("silence threshold: "..value.."dB")
 end
 
-local function adjust_speed(method, change)
-    local change = tonumber(change)
-    if method ~= 'add' and method ~= 'multiply' or not change then
-        msg.error("invalid arguments; usage: adjust-speed add|multiply <number>")
+local function adjust_speed(method, number)
+    local number = tonumber(number)
+    if method ~= 'add' and method ~= 'multiply' and method ~= 'set' or not number then
+        msg.error("invalid arguments; usage: adjust-speed add|multiply|set <number>")
         return
     end
 
     if is_silent then
         if method == 'add' then
-            orig_speed = orig_speed + change
+            orig_speed = orig_speed + number
         elseif method == 'multiply' then
-            orig_speed = orig_speed * change
+            orig_speed = orig_speed * number
+        elseif method == 'set' then
+            orig_speed = number
         end
         last_speed_change_time = -1
         check_time()
