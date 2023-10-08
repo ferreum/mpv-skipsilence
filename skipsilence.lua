@@ -185,6 +185,12 @@ local opts = {
     -- resyncing every time the script is disabled. Recommended value: 100.
     resync_threshold_droppedframes = -1,
 
+    -- Keep the filter added while the script is disabled. This prevents
+    -- most audio interruptions/clicks when toggling the script.
+    -- If arnndn_output is enabled, noise reduction also stays active while
+    -- the script is disabled.
+    filter_persistent = false,
+
     -- Info style used for the 'user-data/skipsilence/info' property and
     -- the default of the 'info' script-message/binding.
     -- May be one of
@@ -218,6 +224,8 @@ local msg = require "mp.msg"
 local is_enabled = false
 local base_speed = 1
 local is_silent = false
+local is_filter_added = false
+local latest_is_silent = false
 local expected_speed = 1
 local last_speed_change_time = -1
 local filter_reapply_time = -1
@@ -576,17 +584,20 @@ local function handle_speed(name, speed)
 end
 
 local function add_event(is_silent)
-    local prev = events[events_ilast]
-    if not prev or is_silent ~= prev.is_silent then
-        local i = events_ilast + 1
-        events[i] = {
-            recv_time = mp.get_time(),
-            is_silent = is_silent,
-            filter_cleanup_time = filter_reapply_time,
-        }
-        events_ilast = i
-        if not is_paused then
-            check_time()
+    latest_is_silent = is_silent
+    if is_enabled then
+        local prev = events[events_ilast]
+        if not prev or is_silent ~= prev.is_silent then
+            local i = events_ilast + 1
+            events[i] = {
+                recv_time = mp.get_time(),
+                is_silent = is_silent,
+                filter_cleanup_time = filter_reapply_time,
+            }
+            events_ilast = i
+            if not is_paused then
+                check_time()
+            end
         end
     end
 end
@@ -695,6 +706,11 @@ local function enable(flag)
         mp.observe_property("core-idle", "bool", handle_pause)
         mp.observe_property("speed", "number", handle_speed)
         set_base_speed(mp.get_property_number("speed"))
+
+        if is_filter_added and latest_is_silent then
+            add_event(true)
+        end
+        is_filter_added = true
     end
 
     set_option("enabled", "yes")
@@ -716,7 +732,6 @@ local function disable(arg1, arg2)
         end
     end
 
-    mp.unregister_event(handle_silence_msg)
     mp.unregister_event(handle_seek)
     mp.unobserve_property(handle_pause)
     mp.unobserve_property(handle_speed)
@@ -728,7 +743,12 @@ local function disable(arg1, arg2)
     end
 
     if is_enabled then
-        mp.commandv("af", "remove", "@"..detect_filter_label)
+        if not opts.filter_persistent then
+            mp.unregister_event(handle_silence_msg)
+            mp.commandv("af", "remove", "@"..detect_filter_label)
+            is_filter_added = false
+            latest_is_silent = false
+        end
 
         if opt_base_speed then
             mp.set_property_number("speed", opt_base_speed)
