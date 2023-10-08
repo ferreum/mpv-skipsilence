@@ -666,23 +666,25 @@ end
 local function enable(flag)
     local no_osd = flag == "no-osd"
 
-    if is_enabled then return end
-    mp.commandv("af", "pre", get_silence_filter())
-    if not mp.get_property("af"):find("@"..detect_filter_label..":", 1, true) then
-        if opts.enabled then set_option("enabled", "no") end
-        mp.osd_message("skipsilence enable failed: see console output")
-        return
+    if not is_enabled then
+        mp.commandv("af", "pre", get_silence_filter())
+        if not mp.get_property("af"):find("@"..detect_filter_label..":", 1, true) then
+            if opts.enabled then set_option("enabled", "no") end
+            mp.osd_message("skipsilence enable failed: see console output")
+            return
+        end
+        is_enabled = true
+        if not no_osd then
+            mp.osd_message("skipsilence enabled")
+        end
+        mp.register_event("log-message", handle_silence_msg)
+        mp.register_event("seek", handle_seek)
+        mp.observe_property("core-idle", "bool", handle_pause)
+        mp.observe_property("speed", "number", handle_speed)
     end
-    is_enabled = true
-    mp.set_property_bool("user-data/skipsilence/enabled", true)
-    if not no_osd then
-        mp.osd_message("skipsilence enabled")
-    end
-    mp.register_event("log-message", handle_silence_msg)
-    mp.register_event("seek", handle_seek)
-    mp.observe_property("core-idle", "bool", handle_pause)
-    mp.observe_property("speed", "number", handle_speed)
+
     set_option("enabled", "yes")
+    mp.set_property_bool("user-data/skipsilence/enabled", true)
 end
 
 local function disable(arg1, arg2)
@@ -710,35 +712,41 @@ local function disable(arg1, arg2)
     if reapply_filter_timer then
         reapply_filter_timer:kill()
     end
-    mp.set_property_bool("user-data/skipsilence/enabled", false)
-    if not is_enabled then return end
-    mp.commandv("af", "remove", "@"..detect_filter_label)
-    if opt_orig_speed then
-        mp.set_property_number("speed", opt_orig_speed)
-    else
-        local speed = is_silent and orig_speed or mp.get_property_number("speed")
-        if opts.alt_normal_speed and math.abs(speed - opts.alt_normal_speed) < 0.001 then
-            mp.set_property_number("speed", 1)
-        elseif is_silent then
-            mp.set_property_number("speed", speed)
+
+    if is_enabled then
+        mp.commandv("af", "remove", "@"..detect_filter_label)
+
+        if opt_orig_speed then
+            mp.set_property_number("speed", opt_orig_speed)
+        else
+            local speed = is_silent and orig_speed or mp.get_property_number("speed")
+            if opts.alt_normal_speed and math.abs(speed - opts.alt_normal_speed) < 0.001 then
+                mp.set_property_number("speed", 1)
+            elseif is_silent then
+                mp.set_property_number("speed", speed)
+            end
+        end
+
+        if is_silent then
+            stats_end_current(mp.get_time())
+        end
+        clear_events()
+        is_silent = false
+        is_enabled = false
+        if not no_osd then
+            mp.osd_message("skipsilence disabled")
+        end
+
+        if opts.resync_threshold_droppedframes >= 0 then
+            local drops = mp.get_property_number("frame-drop-count")
+            if drops and drops >= opts.resync_threshold_droppedframes then
+                mp.commandv("seek", "0", "exact")
+            end
         end
     end
-    if is_silent then
-        stats_end_current(mp.get_time())
-    end
-    clear_events()
-    is_silent = false
-    is_enabled = false
+
     if opts.enabled then set_option("enabled", "no") end
-    if not no_osd then
-        mp.osd_message("skipsilence disabled")
-    end
-    if opts.resync_threshold_droppedframes >= 0 then
-        local drops = mp.get_property_number("frame-drop-count")
-        if drops and drops >= opts.resync_threshold_droppedframes then
-            mp.commandv("seek", "0", "exact")
-        end
-    end
+    mp.set_property_bool("user-data/skipsilence/enabled", false)
 end
 
 local function toggle(flag)
