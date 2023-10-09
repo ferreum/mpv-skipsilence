@@ -614,6 +614,13 @@ local function handle_silence_msg(msg)
     end
 end
 
+local function remove_detect_filter()
+    mp.unregister_event(handle_silence_msg)
+    mp.commandv("af", "remove", "@"..detect_filter_label)
+    is_filter_added = false
+    latest_is_silent = false
+end
+
 local function set_option(opt_name, value)
     mp.commandv("change-list", "script-opts", "append",
         mp.get_script_name().."-"..opt_name.."="..value)
@@ -744,10 +751,7 @@ local function disable(arg1, arg2)
 
     if is_enabled then
         if not opts.filter_persistent then
-            mp.unregister_event(handle_silence_msg)
-            mp.commandv("af", "remove", "@"..detect_filter_label)
-            is_filter_added = false
-            latest_is_silent = false
+            remove_detect_filter()
         end
 
         if opt_base_speed then
@@ -826,6 +830,11 @@ end
             check_time()
         end
         update_info_now()
+    end
+    if list["filter_persistent"] then
+        if not opts.filter_persistent and not is_enabled and is_filter_added then
+            remove_detect_filter()
+        end
     end
     if list["enabled"] and opts.enabled and not is_enabled then
         enable("no-osd")
