@@ -615,6 +615,9 @@ local function handle_silence_msg(msg)
 end
 
 local function remove_detect_filter()
+    if reapply_filter_timer then
+        reapply_filter_timer:kill()
+    end
     mp.unregister_event(handle_silence_msg)
     mp.commandv("af", "remove", "@"..detect_filter_label)
     is_filter_added = false
@@ -745,9 +748,6 @@ local function disable(arg1, arg2)
     if check_time_timer then
         check_time_timer:kill()
     end
-    if reapply_filter_timer then
-        reapply_filter_timer:kill()
-    end
 
     if is_enabled then
         if not opts.filter_persistent then
@@ -817,7 +817,7 @@ end
     if list['threshold_db'] or list['threshold_duration']
         or list["arnndn_enable"] or list["arnndn_modelpath"]
         or list["arnndn_output"] then
-        if is_enabled then
+        if is_filter_added then
             reapply_filter()
         end
     end
