@@ -576,6 +576,8 @@ local function handle_speed(name, speed)
                 set_base_speed(base_speed * speed / expected_speed)
                 do_check = true
             end
+        else
+            set_base_speed(speed)
         end
         expected_speed = speed
         if do_check then
