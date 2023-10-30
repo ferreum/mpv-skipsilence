@@ -705,6 +705,13 @@ local function enable(flag)
     local no_osd = flag == "no-osd"
 
     if not is_enabled then
+        if not is_filter_added then
+            -- if filter was added externally, silence start messages are
+            -- missed; ensure it's removed first
+            if mp.get_property("af"):find("@"..detect_filter_label..":", 1, true) then
+                mp.commandv("af", "remove", "@"..detect_filter_label)
+            end
+        end
         mp.commandv("af", "pre", get_silence_filter())
         if not mp.get_property("af"):find("@"..detect_filter_label..":", 1, true) then
             if opts.enabled then set_option("enabled", "no") end
