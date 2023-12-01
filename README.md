@@ -83,6 +83,25 @@ filter definition (see above) like this:
 
     af-add=scaletempo2=max-speed=16.0
 
+### Maximize skipping speed
+
+Because of the asynchronous nature of scripts, there is latency between silence
+detection and speed changes. The higher the playback speed, the more noticeably
+playback will overshoot before normal speed is restored. What speeds are
+acceptable depends on the performance/latency of the system.
+
+To maximize skipping speed, start with the extreme profile (see
+[Profiles](#profiles) below). Then adjust `ramp_constant`, `ramp_factor`,
+`max_speed` options as needed.
+
+- If overshooting happens all the time, even for very short pauses, reduce
+  `ramp_constant`.
+- If it happens after the speed ramped up more, focus on `ramp_factor`.
+- For the occasional long stretch of silence this may be less of a problem, but
+  can be improved by reducing `max_speed` at a cost of slower skipping.
+- Notice that extreme values of `ramp_exponent` tend to be less useful. It's
+  recommended to keep the `ramp_exponent` around 0.9 for aggressive profiles.
+
 ### Profiles
 
 Mpv's profiles can be used to switch between different presets. Create profiles
@@ -114,8 +133,8 @@ Bind it to a key in `input.conf`:
 
     # very aggressive skipping, can make it hard to listen
     [skipsilence-extreme]
-    script-opts-append=skipsilence-ramp_constant=1.75
-    script-opts-append=skipsilence-ramp_factor=4
+    script-opts-append=skipsilence-ramp_constant=2.5
+    script-opts-append=skipsilence-ramp_factor=10
     script-opts-append=skipsilence-ramp_exponent=0.9
     script-opts-append=skipsilence-speed_max=6
     script-opts-append=skipsilence-speed_updateinterval=0.05
