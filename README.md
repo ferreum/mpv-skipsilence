@@ -11,11 +11,12 @@ This is similar to the NewPipe app's built-in "Fast-forward during silence"
 feature.
 
 > Note: In mpv version 0.36 and below, the `scaletempo2` filter (default since
-> mpv version 0.34) caused audio-video de-synchronization when changing speed a
-> lot. See [mpv issue #12028](https://github.com/mpv-player/mpv/issues/12028).
-> Small, frequent speed changes instead of large steps can help to reduce this
-> problem. The scaletempo and rubberband filters didn't have this problem, but
-> have different audio quality characteristics.
+> mpv version 0.34) caused audio-video de-synchronization when changing speed
+> a lot. This has been fixed in mpv 0.37. See [mpv issue
+> #12028](https://github.com/mpv-player/mpv/issues/12028). Small, frequent
+> speed changes instead of large steps may help to reduce this problem. The
+> scaletempo and rubberband filters didn't have this problem, but have
+> different audio quality characteristics.
 
 ## Features:
 
@@ -24,13 +25,13 @@ feature.
 - Noise reduction of the detected signal. This allows to speed up
   pauses in speech despite background noise. The output audio is
   unaffected by default (`arnndn_*` options).
+- Saved time estimation.
+- Integration with osd-msg, auto profiles, etc. (with user-data, mpv 0.36 and
+  above only).
 - Workaround for scaletempo2 audio-video desynchronization in mpv 0.36 and
   below (`resync_threshold_droppedframes` option).
 - Workaround for clicks during speed changes with scaletempo2 in mpv 0.36 and
   below (`alt_normal_speed` option).
-- Saved time estimation.
-- Integration with osd-msg, auto profiles, etc. (with user-data, mpv 0.36 and
-  above only).
 
 ## Default bindings
 
@@ -40,7 +41,7 @@ feature.
 
 ## Documentation
 
-For detailed usage check the comments in the [script](skipsilence.lua).
+For detailed usage check the comments at the top of the [script](skipsilence.lua).
 
 ## Recommendations
 
@@ -71,15 +72,16 @@ filter list explicitly:
 
 In mpv 0.36 and below, the scaletempo2 filter itself additionally caused
 similar artifacts when switching to and from 1x speed. This has been fixed in
-the current mpv master branch. The `alt_normal_speed` option of this script
-helps to work around this in older versions.
+mpv 0.37. The `alt_normal_speed` option of this script is a workaround for
+older versions.
 
-### Audio above 4x playback speed
+### Fix silence at high playback speed
 
-By default, scaletempo2 produces silence above 4x playback speed. To enable
-audio at higher speed, the limit can be increased like this:
+By default, scaletempo2 produces silence above 8x playback speed (4x in mpv
+0.36 and below). To lift this limit, set the `max-speed` parameter in the
+filter definition (see above) like this:
 
-    af-add=scaletempo2=max-speed=8.0
+    af-add=scaletempo2=max-speed=16.0
 
 ### Profiles
 
