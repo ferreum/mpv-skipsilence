@@ -120,6 +120,15 @@ local opts = {
     -- higher playback speeds would reduce the length of content skipped.
     startdelay = 0.05,
 
+    -- EXPERIMENTAL: How long to look ahead to slow down playback ahead of
+    -- end of silence. Do not set this too high, as it introduces additional
+    -- buffering. Not compatible with `arnndn_output`.
+    --
+    -- Setting this to anything other than 0 changes the timing mode to
+    -- observe the `time-pts` property instead of applying speed changes
+    -- immediately when events are received.
+    lookahead = 0,
+
     -- How often to update the speed during silence, in seconds of real time.
     speed_updateinterval = 0.2,
     -- The maximum playback speed during silence.
@@ -146,6 +155,12 @@ local opts = {
     ramp_constant = 1.5,
     ramp_factor = 1.15,
     ramp_exponent = 1.2,
+
+    -- EXPERIMENTAL: Same as ramp_* options but for slowdown when using
+    -- lookahead. 'time' is the remaining time to the end of silence.
+    slowdown_ramp_constant = 1.5,
+    slowdown_ramp_factor = 3,
+    slowdown_ramp_exponent = 1,
 
     -- Noise reduction filter configuration.
     --
@@ -235,6 +250,11 @@ local filter_reapply_time = -1
 local is_paused = false
 local total_saved_time = 0
 
+local latest_speed = 1
+local input_ref_pts = nil
+local input_ref_time = 0
+local input_ref_pause_time = nil
+
 local events_ifirst = 1
 local events_ilast = 0
 local events = {}
@@ -258,17 +278,44 @@ local function take_lower(a, b)
     return b
 end
 
+local function get_input_pts(opt_now)
+    if input_ref_pts then
+        local now = input_ref_pause_time or opt_now or mp.get_time()
+        return input_ref_pts + (now - input_ref_time) * latest_speed
+    else
+        -- Note: program flow shouldn't get here because receiving an event
+        -- provides input_ref_pts. Implemented for completeness.
+        local buf = mp.get_property_number("audio-buffer", 0.2)
+        local pts = mp.get_property_number("time-pos")
+        if not pts then
+            return nil
+        end
+        -- estimate for input -> time-pos latency
+        return pts + buf * latest_speed + 0.15
+    end
+end
+
 local function get_silence_filter()
     local filter = "silencedetect=n="..opts.threshold_db.."dB:d="..opts.threshold_duration
+    local branch_detection = false
     if opts.arnndn_enable and opts.arnndn_modelpath ~= "" then
         local path = mp.command_native{"expand-path", opts.arnndn_modelpath}
         local rnn = "arnndn='"..path.."'"
         filter = rnn..","..filter
         if not opts.arnndn_output then
-            -- need amix with to keep the detection filter branch advancing
-            -- and not lagging behind. Weights only keep the original audio.
-            filter = "asplit[ao],"..filter..",[ao]amix='weights=1 0'"
+            branch_detection = true
         end
+    end
+
+    if opts.lookahead > 0 then
+        filter = filter..",asetpts=PTS-STARTPTS,atrim=start="..opts.lookahead
+        branch_detection = true
+    end
+
+    if branch_detection then
+        -- need amix to keep the detection filter branch advancing with
+        -- the playback stream. Weights only keep the original audio.
+        filter = "asplit[ao],"..filter..",[ao]amix='weights=1 0'"
     end
     return "@"..detect_filter_label..":lavfi=["..filter.."]"
 end
@@ -431,6 +478,9 @@ local function clear_silence_state()
     end
     clear_events()
     is_silent = false
+    input_ref_pts = nil
+    input_ref_time = nil
+    input_ref_pause_time = nil
     if check_time_timer ~= nil then
         check_time_timer:kill()
     end
@@ -448,35 +498,57 @@ end
 local schedule_check_time -- function
 local function check_time()
     local now = mp.get_time()
+    local input_pts = nil
     local speed = mp.get_property_number("speed")
 
     local new_speed = nil
     local did_change = is_silent
     local was_silent = is_silent
     local next_delay = nil
+    local next_delay_pts = nil
 
     while true do
         local ev = get_next_event()
         if not ev then break end
 
         local remaining = 0
-        if ev.is_silent ~= was_silent then
+        local remaining_pts = 0
+        if opts.lookahead > 0 then
+            -- calc time based on pts while lookahead
+            input_pts = input_pts or get_input_pts(now)
+
+            local offset
             if ev.is_silent then
-                remaining = opts.startdelay - (now - ev.recv_time)
+                offset = opts.startdelay * base_speed
             else
-                -- events on filter reapply:
-                -- 1. filters removed and added
-                -- 2. (if silent)
-                --    silence end message
-                -- 3. (if still silent for new filter)
-                --    silence start message
-                --
-                -- wait before stopping the gap after reapply to preserve
-                -- speed if playback is still silent
-                remaining = 0.05 - (now - ev.filter_cleanup_time)
+                offset = 0
+            end
+            remaining_pts = offset + (ev.pts - input_pts) + opts.lookahead
+            dprint("input_pts:", input_pts, "ev.pts:", ev.pts, "remaining:", remaining_pts)
+        else
+            if ev.is_silent ~= was_silent then
+                if ev.is_silent then
+                    remaining = opts.startdelay - (now - ev.recv_time)
+                else
+                    -- events on filter reapply:
+                    -- 1. filters removed and added
+                    -- 2. (if silent)
+                    --    silence end message
+                    -- 3. (if still silent for new filter)
+                    --    silence start message
+                    --
+                    -- wait before stopping the gap after reapply to preserve
+                    -- speed if playback is still silent
+                    remaining = 0.05 - (now - ev.filter_cleanup_time)
+                end
             end
         end
-        if remaining > 0 and events_count() < 2 then
+        if opts.lookahead > 0 then
+            if remaining_pts > 0 then
+                next_delay_pts = remaining_pts
+                break
+            end
+        elseif remaining > 0 and events_count() < 2 then
             dprint("recheck in", remaining)
             next_delay = remaining
             break
@@ -513,8 +585,13 @@ local function check_time()
             dprint("last speed change too recent; recheck in", remaining)
             next_delay = take_lower(next_delay, remaining)
         else
-            local length = stats_silence_length(now)
-            new_speed = base_speed * (opts.ramp_constant + (length * opts.ramp_factor) ^ opts.ramp_exponent)
+            if next_delay_pts then
+                new_speed = base_speed * (opts.slowdown_ramp_constant
+                    + (next_delay_pts * opts.slowdown_ramp_factor) ^ opts.slowdown_ramp_exponent)
+            else
+                new_speed = base_speed * (opts.ramp_constant
+                    + (stats_silence_length(now) * opts.ramp_factor) ^ opts.ramp_exponent)
+            end
             next_delay = take_lower(next_delay, opts.speed_updateinterval)
             last_speed_change_time = now
         end
@@ -524,13 +601,17 @@ local function check_time()
         local new_speed = math.min(new_speed, opts.speed_max)
         expected_speed = new_speed
         if new_speed ~= speed then
+            speed = new_speed
             mp.set_property_number("speed", new_speed)
         end
+    end
+    if next_delay_pts then
+        next_delay = take_lower(next_delay, next_delay_pts / speed)
     end
     if next_delay then
         schedule_check_time(next_delay)
     end
-    dprint("check_time: new_speed:", new_speed, "is_silent:", is_silent, "next_delay:", next_delay)
+    dprint("check_time: new_speed:", new_speed, "is_silent:", is_silent, "next_delay:", next_delay, "next_delay_pts:", next_delay_pts)
     if did_change then
         update_info(now)
     end
@@ -551,7 +632,19 @@ end
 local function handle_pause(name, paused)
     dprint("handle_pause", name, paused)
     is_paused = paused
-    stats_handle_pause(mp.get_time(), paused)
+    local now = mp.get_time()
+    if input_ref_pts then
+        if paused then
+            if not input_ref_pause_time then
+                input_ref_pause_time = now
+            end
+        elseif input_ref_pause_time then
+            local delta = now - input_ref_pause_time
+            input_ref_time = input_ref_time + delta
+            input_ref_pause_time = nil
+        end
+    end
+    stats_handle_pause(now, paused)
     if paused then
         if check_time_timer then
             check_time_timer:kill()
@@ -563,8 +656,16 @@ end
 
 local function handle_speed(name, speed)
     dprint("handle_speed", speed)
+    local time = nil
+    if input_ref_pts ~= nil then
+        time = mp.get_time()
+        input_ref_pts = get_input_pts(time)
+        input_ref_time = input_ref_pause_time or time
+    end
+    latest_speed = speed
     if is_silent then
-        stats_accumulate(mp.get_time(), speed)
+        time = time or mp.get_time()
+        stats_accumulate(time, speed)
     end
     if math.abs(speed - expected_speed) > 0.01 then
         local do_check = false
@@ -588,16 +689,25 @@ local function handle_speed(name, speed)
     end
 end
 
-local function add_event(is_silent)
+local function add_event(is_silent, pts)
     latest_is_silent = is_silent
     if is_enabled then
         local prev = events[events_ilast]
         if not prev or is_silent ~= prev.is_silent then
             local i = events_ilast + 1
+            local time = mp.get_time()
+            if pts then
+                input_ref_pts = pts
+                input_ref_time = time
+                if is_paused then
+                    input_ref_pause_time = time
+                end
+            end
             events[i] = {
-                recv_time = mp.get_time(),
+                recv_time = time,
                 is_silent = is_silent,
                 filter_cleanup_time = filter_reapply_time,
+                pts = pts,
             }
             events_ilast = i
             if not is_paused then
@@ -607,15 +717,26 @@ local function add_event(is_silent)
     end
 end
 
+-- example messages:
+-- [ffmpeg] silencedetect: silence_start: 6.07669
+-- [ffmpeg] silencedetect: silence_end: 7.06427 | silence_duration: 0.987583
 local function handle_silence_msg(msg)
     if msg.prefix ~= "ffmpeg" then return end
-    if msg.text:find("silencedetect: silence_start: ", 1, true) == 1 then
+    -- find without pattern is significantly faster; jump out fast
+    if msg.text:find("silencedetect: silence_", 1, true) ~= 1 then return end
+
+    local startend, pts =
+        msg.text:match("^silencedetect: silence_(%a+): ([0-9%.]+)")
+    pts = tonumber(pts)
+    if startend == "start" and pts then
         filter_reapply_time = -1
-        dprint("got silence start message")
-        add_event(true)
-    elseif msg.text:find("silencedetect: silence_end: ", 1, true) == 1 then
-        dprint("got silence end message")
-        add_event(false)
+        dprint("got silence start message", pts)
+        add_event(true, pts)
+    elseif startend == "end" and pts then
+        dprint("got silence end message", pts)
+        add_event(false, pts)
+    else
+        dprint("invalid match:", msg.text)
     end
 end
 
@@ -729,7 +850,7 @@ local function enable(flag)
         set_base_speed(mp.get_property_number("speed"))
 
         if is_filter_added and latest_is_silent then
-            add_event(true)
+            add_event(true, 0)
         end
         if not is_filter_added then
             mp.register_event("log-message", handle_silence_msg)
@@ -828,7 +949,7 @@ end
     if list["enabled"] and not opts.enabled and is_enabled then
         disable("no-osd")
     end
-    if list['threshold_db'] or list['threshold_duration']
+    if list['threshold_db'] or list['threshold_duration'] or list["lookahead"]
         or list["arnndn_enable"] or list["arnndn_modelpath"]
         or list["arnndn_output"] then
         if is_filter_added then
