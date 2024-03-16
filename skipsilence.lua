@@ -450,12 +450,16 @@ local function format_info(style, saved_total, period_current, saved)
     if style == "compact" then
         return silence_stats
     end
-    return "Status: "..(is_enabled and "enabled" or "disabled").."\n"
+    local s = "Status: "..(is_enabled and "enabled" or "disabled").."\n"
         ..("Threshold: %+gdB, %gs (+%gs)\n"):format(opts.threshold_db, opts.threshold_duration, opts.startdelay)
         .."Arnndn: "..(opts.arnndn_enable and opts.arnndn_modelpath ~= ""
                         and "enabled"..(opts.arnndn_output and " with output" or "") or "disabled").."\n"
-        ..("Speed ramp: %g + (time * %g) ^ %g\n"):format(opts.ramp_constant, opts.ramp_factor, opts.ramp_exponent)
-        ..("Max speed: %gx, Update interval: %gs\n"):format(opts.speed_max, opts.speed_updateinterval)
+        ..("Speedup ramp: %g + (time * %g) ^ %g\n"):format(opts.ramp_constant, opts.ramp_factor, opts.ramp_exponent)
+    if opts.lookahead > 0 then
+        s = s..("Lookahead: %gs endmargin: %gs\n"):format(opts.lookahead, opts.endmargin)
+            ..("Slowdown ramp: %g + (time * %g) ^ %g\n"):format(opts.slowdown_ramp_constant, opts.slowdown_ramp_factor, opts.slowdown_ramp_exponent)
+    end
+    return s..("Max speed: %gx, Update interval: %gs\n"):format(opts.speed_max, opts.speed_updateinterval)
         ..silence_stats
 end
 
