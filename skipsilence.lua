@@ -492,6 +492,8 @@ local function reapply_filter()
     if not reapply_filter_timer or not reapply_filter_timer:is_enabled() then
         -- throttle with timer to avoid stalling playback with repeated calls
         reapply_filter_timer = mp.add_timeout(0.2, function()
+            dprint("reapply filter")
+            clear_events()
             filter_reapply_time = mp.get_time()
             mp.commandv("af", "pre", get_silence_filter())
         end)
@@ -721,6 +723,13 @@ end
 
 local function add_event(silent, pts)
     local prev = events[events_ilast]
+
+    -- After reapply_filter, events can arrive late from the removed filter.
+    -- Workaround: remove all events when there is a jump back.
+    if prev and prev.pts > pts then
+        clear_events()
+    end
+
     if not prev or silent ~= prev.is_silent then
         local i = events_ilast + 1
         local time = mp.get_time()
