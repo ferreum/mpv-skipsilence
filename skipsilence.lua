@@ -258,7 +258,6 @@ local is_enabled = false
 local base_speed = 1
 local is_silent = false
 local is_filter_added = false
-local latest_is_silent = false
 local expected_speed = 1
 local last_speed_change_time = -1
 local filter_reapply_time = -1
@@ -346,10 +345,6 @@ local function get_silence_filter()
     end
 
     return "@"..detect_filter_label..":lavfi=["..filter.."]"
-end
-
-local function events_count()
-    return events_ilast - events_ifirst + 1
 end
 
 local function clear_events()
@@ -518,15 +513,6 @@ local function clear_silence_state()
     end
 end
 
-local function get_next_event()
-    while true do
-        local ev = events[events_ifirst]
-        if not ev then return end
-        if ev.is_silent ~= is_silent then return ev end
-        drop_event()
-    end
-end
-
 local schedule_check_time -- function
 local function check_time()
     local now = mp.get_time()
@@ -539,9 +525,10 @@ local function check_time()
     local next_delay = nil
     local next_delay_pts = nil
 
-    while true do
-        local ev = get_next_event()
-        if not ev then break end
+    local index_current = events_ifirst
+
+    for index = events_ifirst, events_ilast do
+        local ev = events[index]
 
         local remaining = 0
         local remaining_pts = 0
@@ -580,7 +567,7 @@ local function check_time()
                 next_delay_pts = remaining_pts
                 break
             end
-        elseif remaining > 0 and events_count() < 2 then
+        elseif remaining > 0 and events_ilast - index + 1 < 2 then
             dprint("recheck in", remaining)
             next_delay = remaining
             break
@@ -588,8 +575,14 @@ local function check_time()
 
         is_silent = ev.is_silent
         did_change = true
+        index_current = index
+    end
+
+    -- drop outdated events
+    for _ = events_ifirst, index_current-1 do
         drop_event()
     end
+
     if is_silent ~= was_silent then
         if is_silent then
             stats_start_current(now, speed)
@@ -724,28 +717,38 @@ local function handle_speed(_, speed)
 end
 
 local function add_event(silent, pts)
-    latest_is_silent = silent
-    if is_enabled then
-        local prev = events[events_ilast]
-        if not prev or silent ~= prev.is_silent then
-            local i = events_ilast + 1
-            local time = mp.get_time()
-            if pts then
-                input_ref_pts = pts
-                input_ref_time = time
-                if is_paused then
-                    input_ref_pause_time = time
-                end
+    local prev = events[events_ilast]
+    if not prev or silent ~= prev.is_silent then
+        local i = events_ilast + 1
+        local time = mp.get_time()
+        if pts then
+            input_ref_pts = pts
+            input_ref_time = time
+            if is_paused then
+                input_ref_pause_time = time
             end
-            events[i] = {
-                recv_time = time,
-                is_silent = silent,
-                filter_cleanup_time = filter_reapply_time,
-                pts = pts,
-            }
-            events_ilast = i
-            if not is_paused then
-                check_time()
+        end
+        events[i] = {
+            recv_time = time,
+            is_silent = silent,
+            filter_cleanup_time = filter_reapply_time,
+            pts = pts,
+        }
+        events_ilast = i
+        if not is_paused and is_enabled then
+            check_time()
+        end
+    end
+    if not is_enabled then
+        -- remove outdated events: keep the newest event in the past relative
+        -- to input time
+        local input_pts = pts
+        if opts.lookahead > 0 then
+            input_pts = input_pts - opts.lookahead
+        end
+        for i = events_ifirst+1, events_ilast-1 do
+            if events[i].pts > input_pts then
+                drop_event()
             end
         end
     end
@@ -781,7 +784,7 @@ local function remove_detect_filter()
     mp.unregister_event(handle_silence_msg)
     mp.commandv("af", "remove", "@"..detect_filter_label)
     is_filter_added = false
-    latest_is_silent = false
+    clear_events()
 end
 
 local function set_option(opt_name, value)
@@ -883,13 +886,12 @@ local function enable(flag)
         mp.observe_property("speed", "number", handle_speed)
         set_base_speed(mp.get_property_number("speed"))
 
-        if is_filter_added and latest_is_silent then
-            add_event(true, 0)
-        end
         if not is_filter_added then
             mp.register_event("log-message", handle_silence_msg)
         end
         is_filter_added = true
+
+        check_time()
     end
 
     set_option("enabled", "yes")
@@ -937,7 +939,6 @@ local function disable(arg1, arg2)
         if is_silent then
             stats_end_current(mp.get_time())
         end
-        clear_events()
         is_silent = false
         is_enabled = false
         if not no_osd then
