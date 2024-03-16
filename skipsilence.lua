@@ -168,11 +168,16 @@ local opts = {
     ramp_factor = 1.15,
     ramp_exponent = 1.2,
 
-    -- EXPERIMENTAL: Same as ramp_* options but for slowdown when using
+    -- EXPERIMENTAL: Same as ramp_* options, but for slowdown when using
     -- lookahead. 'time' is the remaining time to the end of silence.
+    -- Note this is measured in stream time, different from the ramp_*
+    -- options, which use real time. Choose a lower exponent to compensate.
+    --
+    -- While slowdown ramp is active, always the lower speed calculated by the
+    -- two ramps is used.
     slowdown_ramp_constant = 1.5,
-    slowdown_ramp_factor = 3,
-    slowdown_ramp_exponent = 1,
+    slowdown_ramp_factor = 5,
+    slowdown_ramp_exponent = 0.5,
 
     -- Noise reduction filter configuration.
     --
