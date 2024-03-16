@@ -161,9 +161,6 @@ local opts = {
     --   results in a linear curve, values above 1 increase the speed faster
     --   the more time has passed, while values below 1 speed up at
     --   decreasing intervals.
-    -- - The more aggressive this curve is configured, the faster
-    --   audio and video is desynchronized. If video stutters and drops frames
-    --   when silence starts, reduce ramp_constant to improve this problem.
     ramp_constant = 1.5,
     ramp_factor = 1.15,
     ramp_exponent = 1.2,
