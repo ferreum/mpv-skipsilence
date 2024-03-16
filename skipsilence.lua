@@ -135,6 +135,12 @@ local opts = {
     -- Recommended values are around 1.0.
     lookahead = 0,
 
+    -- EXPERIMENTAL: Extra margin to slow down before detected end of silence.
+    -- Measured in real time, like startdelay.
+    -- Requires lookahead to be active. Maximum adjustment is limited by the
+    -- lookahead period.
+    endmargin = 0,
+
     -- How often to update the speed during silence, in seconds of real time.
     speed_updateinterval = 0.2,
     -- The maximum playback speed during silence.
@@ -527,7 +533,7 @@ local function check_time()
             if ev.is_silent then
                 offset = opts.startdelay * base_speed
             else
-                offset = 0
+                offset = -opts.endmargin * base_speed
             end
             remaining_pts = offset + (ev.pts - input_pts) + opts.lookahead
             dprint("input_pts:", input_pts, "ev.pts:", ev.pts, "remaining:", remaining_pts)
