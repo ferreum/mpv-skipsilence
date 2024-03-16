@@ -723,7 +723,6 @@ local function enable(flag)
         if not no_osd then
             mp.osd_message("skipsilence enabled")
         end
-        mp.register_event("log-message", handle_silence_msg)
         mp.register_event("seek", handle_seek)
         mp.observe_property("core-idle", "bool", handle_pause)
         mp.observe_property("speed", "number", handle_speed)
@@ -731,6 +730,9 @@ local function enable(flag)
 
         if is_filter_added and latest_is_silent then
             add_event(true)
+        end
+        if not is_filter_added then
+            mp.register_event("log-message", handle_silence_msg)
         end
         is_filter_added = true
     end
