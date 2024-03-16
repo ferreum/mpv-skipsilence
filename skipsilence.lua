@@ -254,8 +254,6 @@ local opts = {
     debug = false,
 }
 
-local msg = require "mp.msg"
-
 local is_enabled = false
 local base_speed = 1
 local is_silent = false
@@ -634,11 +632,11 @@ local function check_time()
         did_change = true
     end
     if new_speed then
-        local new_speed = math.min(new_speed, opts.speed_max)
-        expected_speed = new_speed
-        if new_speed ~= speed then
-            speed = new_speed
-            mp.set_property_number("speed", new_speed)
+        local s = math.min(new_speed, opts.speed_max)
+        expected_speed = s
+        if s ~= speed then
+            speed = s
+            mp.set_property_number("speed", s)
         end
     end
     if next_delay_pts then
@@ -690,7 +688,7 @@ local function handle_pause(name, paused)
     end
 end
 
-local function handle_speed(name, speed)
+local function handle_speed(_, speed)
     dprint("handle_speed", speed)
     local time = nil
     if input_ref_pts ~= nil then
@@ -725,11 +723,11 @@ local function handle_speed(name, speed)
     end
 end
 
-local function add_event(is_silent, pts)
-    latest_is_silent = is_silent
+local function add_event(silent, pts)
+    latest_is_silent = silent
     if is_enabled then
         local prev = events[events_ilast]
-        if not prev or is_silent ~= prev.is_silent then
+        if not prev or silent ~= prev.is_silent then
             local i = events_ilast + 1
             local time = mp.get_time()
             if pts then
@@ -741,7 +739,7 @@ local function add_event(is_silent, pts)
             end
             events[i] = {
                 recv_time = time,
-                is_silent = is_silent,
+                is_silent = silent,
                 filter_cleanup_time = filter_reapply_time,
                 pts = pts,
             }
@@ -797,10 +795,10 @@ local function adjust_thresholdDB(change)
     mp.osd_message("silence threshold: "..value.."dB")
 end
 
-local function adjust_speed(method, number)
-    local number = tonumber(number)
+local function adjust_speed(method, number_str)
+    local number = tonumber(number_str)
     if method ~= 'add' and method ~= 'multiply' and method ~= 'set' or not number then
-        msg.error("invalid arguments; usage: adjust-speed add|multiply|set <number>")
+        mp.msg.error("invalid arguments; usage: adjust-speed add|multiply|set <number>")
         return
     end
 
@@ -906,7 +904,7 @@ local function disable(arg1, arg2)
     else
         opt_base_speed = tonumber(arg1)
         if not opt_base_speed and arg1 then
-            msg.warn("invalid number:", arg1)
+            mp.msg.warn("invalid number:", arg1)
         end
         if arg2 == "no-osd" then
             no_osd = true
