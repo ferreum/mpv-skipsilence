@@ -671,13 +671,15 @@ local function handle_pause(name, paused)
             input_ref_pause_time = nil
         end
     end
-    stats_handle_pause(now, paused)
-    if paused then
-        if check_time_timer then
-            check_time_timer:kill()
+    if is_enabled then
+        stats_handle_pause(now, paused)
+        if paused then
+            if check_time_timer then
+                check_time_timer:kill()
+            end
+        else
+            check_time()
         end
-    else
-        check_time()
     end
 end
 
@@ -694,7 +696,8 @@ local function handle_speed(_, speed)
         time = time or mp.get_time()
         stats_accumulate(time, speed)
     end
-    if math.abs(speed - expected_speed) > 0.01 then
+
+    if is_enabled and math.abs(speed - expected_speed) > 0.01 then
         local do_check = false
         dprint("handle_speed: external speed change: got", speed, "instead of", expected_speed)
         if is_silent then
@@ -777,16 +780,6 @@ local function handle_silence_msg(msg)
     end
 end
 
-local function remove_detect_filter()
-    if reapply_filter_timer then
-        reapply_filter_timer:kill()
-    end
-    mp.unregister_event(handle_silence_msg)
-    mp.commandv("af", "remove", "@"..detect_filter_label)
-    is_filter_added = false
-    clear_events()
-end
-
 local function set_option(opt_name, value)
     mp.commandv("change-list", "script-opts", "append",
         mp.get_script_name().."-"..opt_name.."="..value)
@@ -860,19 +853,48 @@ local function handle_seek()
     clear_silence_state()
 end
 
+local function insert_detect_filter()
+    if not is_filter_added then
+        -- if filter was added externally, silence start messages are
+        -- missed; ensure it's removed first
+        if mp.get_property("af"):find("@"..detect_filter_label..":", 1, true) then
+            mp.commandv("af", "remove", "@"..detect_filter_label)
+        end
+    end
+    mp.commandv("af", "pre", get_silence_filter())
+
+    if not mp.get_property("af"):find("@"..detect_filter_label..":", 1, true) then
+        return false
+    end
+
+    if not is_filter_added then
+        mp.register_event("seek", handle_seek)
+        mp.register_event("log-message", handle_silence_msg)
+        mp.observe_property("speed", "number", handle_speed)
+        mp.observe_property("core-idle", "bool", handle_pause)
+    end
+    is_filter_added = true
+    return true
+end
+
+local function remove_detect_filter()
+    if reapply_filter_timer then
+        reapply_filter_timer:kill()
+    end
+    mp.unregister_event(handle_seek)
+    mp.unregister_event(handle_silence_msg)
+    mp.unobserve_property(handle_speed)
+    mp.unobserve_property(handle_pause)
+    mp.commandv("af", "remove", "@"..detect_filter_label)
+    is_filter_added = false
+    clear_events()
+end
+
 local function enable(flag)
     local no_osd = flag == "no-osd"
 
     if not is_enabled then
-        if not is_filter_added then
-            -- if filter was added externally, silence start messages are
-            -- missed; ensure it's removed first
-            if mp.get_property("af"):find("@"..detect_filter_label..":", 1, true) then
-                mp.commandv("af", "remove", "@"..detect_filter_label)
-            end
-        end
-        mp.commandv("af", "pre", get_silence_filter())
-        if not mp.get_property("af"):find("@"..detect_filter_label..":", 1, true) then
+        if not insert_detect_filter() then
             if opts.enabled then set_option("enabled", "no") end
             mp.osd_message("skipsilence enable failed: see console output")
             return
@@ -881,15 +903,7 @@ local function enable(flag)
         if not no_osd then
             mp.osd_message("skipsilence enabled")
         end
-        mp.register_event("seek", handle_seek)
-        mp.observe_property("core-idle", "bool", handle_pause)
-        mp.observe_property("speed", "number", handle_speed)
         set_base_speed(mp.get_property_number("speed"))
-
-        if not is_filter_added then
-            mp.register_event("log-message", handle_silence_msg)
-        end
-        is_filter_added = true
 
         check_time()
     end
@@ -913,9 +927,6 @@ local function disable(arg1, arg2)
         end
     end
 
-    mp.unregister_event(handle_seek)
-    mp.unobserve_property(handle_pause)
-    mp.unobserve_property(handle_speed)
     if check_time_timer then
         check_time_timer:kill()
     end
