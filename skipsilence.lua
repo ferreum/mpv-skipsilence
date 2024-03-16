@@ -120,13 +120,19 @@ local opts = {
     -- higher playback speeds would reduce the length of content skipped.
     startdelay = 0.05,
 
-    -- EXPERIMENTAL: How long to look ahead to slow down playback ahead of
-    -- end of silence. Do not set this too high, as it introduces additional
-    -- buffering. Not compatible with `arnndn_output`.
+    -- How long to look ahead to allow slowing down ahead of end of silence.
     --
-    -- Setting this to anything other than 0 changes the timing mode to
-    -- observe the `time-pts` property instead of applying speed changes
-    -- immediately when events are received.
+    -- EXPERIMENTAL: Enabling this completely changes internal timing logic. It
+    -- may be less reliable than operation without lookahead.
+    --
+    -- Not compatible with `arnndn_output`.
+    --
+    -- Low values (~0.2s) tend to make filter adjustments (threshold_*) more
+    -- jarring because of skipped audio. Higher values (~1.0s) cause a seek
+    -- event instead, which may be less problematic. Do not set this too high,
+    -- as it introduces additional buffering.
+    --
+    -- Recommended values are around 1.0.
     lookahead = 0,
 
     -- How often to update the speed during silence, in seconds of real time.
