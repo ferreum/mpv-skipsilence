@@ -320,6 +320,8 @@ local function get_silence_filter()
     end
 
     if opts.lookahead > 0 then
+        -- Cut off beginning of audio after silencedetect filter. This causes
+        -- detection to run ahead of the current audio playback.
         filter = filter..",asetpts=PTS-STARTPTS,atrim=start="..opts.lookahead
         branch_detection = true
     end
@@ -327,8 +329,19 @@ local function get_silence_filter()
     if branch_detection then
         -- need amix to keep the detection filter branch advancing with
         -- the playback stream. Weights only keep the original audio.
-        filter = "asplit[ao],"..filter..",[ao]amix='weights=1 0'"
+        --
+        -- Parameter "duration" doesn't seem to affect output cutoff problem
+        -- with lookahead. Explicit duration=shortest chosen that ought to
+        -- resemble the required behavior for the workaround.
+        filter = "asplit[ao],"..filter..",[ao]amix='weights=1 0':normalize=0:duration=shortest"
+
+        if opts.lookahead > 0 then
+            -- amix ends output early by the lookahead amount. Pad input with
+            -- silence to fix this.
+            filter = "apad=pad_dur="..opts.lookahead..","..filter
+        end
     end
+
     return "@"..detect_filter_label..":lavfi=["..filter.."]"
 end
 
