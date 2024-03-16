@@ -494,7 +494,13 @@ local function reapply_filter()
         reapply_filter_timer = mp.add_timeout(0.2, function()
             dprint("reapply filter")
             clear_events()
+
+            -- remember last time filters were changed. Used to preserve
+            -- silence state when changing options in some cases.
+            -- Note: lookahead tends to case a backwards seek event on filter
+            -- change, which prevents handling this.
             filter_reapply_time = mp.get_time()
+
             mp.commandv("af", "pre", get_silence_filter())
         end)
     end
