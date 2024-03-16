@@ -503,6 +503,7 @@ end
 local function clear_silence_state()
     if is_silent then
         stats_end_current(mp.get_time())
+        expected_speed = base_speed
         mp.set_property_number("speed", base_speed)
     end
     clear_events()
