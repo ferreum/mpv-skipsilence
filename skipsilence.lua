@@ -25,6 +25,8 @@
 -- - Saved time estimation.
 -- - Integration with osd-msg, auto profiles, etc. (with user-data, mpv 0.36
 --   and above only).
+-- - Experimental: Lookahead for dynamic slowdown and faster reaction time
+--   (`lookahead`, `slowdown_ramp_*`, `margin_*` options).
 -- - Workaround for scaletempo2 audio-video desynchronization in mpv 0.36 and
 --   below (resync_threshold_droppedframes option).
 -- - Workaround for clicks during speed changes with scaletempo2 in mpv 0.36
