@@ -114,10 +114,11 @@ local opts = {
     -- threshold-down bindings, and adjust-threshold-db script message.
     threshold_db = -24,
     -- Minimum duration of silence to be detected, in seconds. This is
-    -- measured in stream time, as if playback speed was 1.
+    -- measured in seconds of stream time, as if playback speed was 1.
     threshold_duration = 0.1,
-    -- How long to wait before speedup. This is measured in real time, thus
-    -- higher playback speeds would reduce the length of content skipped.
+    -- How long to wait before speedup. This is measured in seconds of real
+    -- time, thus higher playback speeds would reduce the length of content
+    -- skipped.
     startdelay = 0.05,
 
     -- How long to look ahead to allow slowing down ahead of end of silence.
@@ -136,7 +137,7 @@ local opts = {
     lookahead = 0,
 
     -- EXPERIMENTAL: Extra margin to slow down before detected end of silence.
-    -- Measured in real time, like startdelay.
+    -- Measured in seconds of real time, like startdelay.
     -- Requires lookahead to be active. Maximum adjustment is limited by the
     -- lookahead period.
     endmargin = 0,
@@ -150,7 +151,7 @@ local opts = {
     --
     --     ramp_constant + (time * ramp_factor) ^ ramp_exponent
     --
-    -- Where time is the real time passed since start of speedup.
+    -- Where time is the real time in seconds passed since start of speedup.
     -- The result is multiplied with the original playback speed.
     --
     -- - ramp_constant should always be greater or equal to one, otherwise it
