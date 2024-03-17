@@ -625,17 +625,23 @@ local function check_time()
                     new_speed = s
                 end
             end
-            next_delay = take_lower(next_delay, opts.speed_updateinterval)
-            last_speed_change_time = now
+            if next_delay_pts or new_speed <= opts.speed_max or speed ~= opts.speed_max then
+                new_speed = math.min(new_speed, opts.speed_max)
+                last_speed_change_time = now
+                if next_delay_pts or new_speed ~= opts.speed_max then
+                    next_delay = take_lower(next_delay, opts.speed_updateinterval)
+                end
+            else
+                new_speed = nil
+            end
         end
         did_change = true
     end
     if new_speed then
-        local s = math.min(new_speed, opts.speed_max)
-        expected_speed = s
-        if s ~= speed then
-            speed = s
-            mp.set_property_number("speed", s)
+        expected_speed = new_speed
+        if new_speed ~= speed then
+            speed = new_speed
+            mp.set_property_number("speed", new_speed)
         end
     end
     if next_delay_pts then
