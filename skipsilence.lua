@@ -256,6 +256,7 @@ local is_enabled = false
 local base_speed = 1
 local is_silent = false
 local is_filter_added = false
+local filter_lookahead = 0
 local expected_speed = 1
 local last_speed_change_time = -1
 local filter_reapply_time = -1
@@ -451,8 +452,8 @@ local function format_info(style, saved_total, period_current, saved)
         .."Arnndn: "..(opts.arnndn_enable and opts.arnndn_modelpath ~= ""
                         and "enabled"..(opts.arnndn_output and " with output" or "") or "disabled").."\n"
         ..("Speedup ramp: %g + (time * %g) ^ %g\n"):format(opts.ramp_constant, opts.ramp_factor, opts.ramp_exponent)
-    if opts.lookahead > 0 then
-        s = s..("Lookahead: %gs endmargin: %gs\n"):format(opts.lookahead, opts.endmargin)
+    if filter_lookahead > 0 then
+        s = s..("Lookahead: %gs endmargin: %gs\n"):format(filter_lookahead, opts.endmargin)
             ..("Slowdown ramp: %g + (time * %g) ^ %g\n"):format(opts.slowdown_ramp_constant, opts.slowdown_ramp_factor, opts.slowdown_ramp_exponent)
     end
     return s..("Max speed: %gx, Update interval: %gs\n"):format(opts.speed_max, opts.speed_updateinterval)
@@ -486,6 +487,10 @@ local function set_base_speed(speed)
     mp.set_property_number("user-data/skipsilence/base_speed", speed)
 end
 
+local function update_filter_opts()
+    filter_lookahead = opts.lookahead
+end
+
 local function reapply_filter()
     if not reapply_filter_timer or not reapply_filter_timer:is_enabled() then
         -- throttle with timer to avoid stalling playback with repeated calls
@@ -500,6 +505,7 @@ local function reapply_filter()
             filter_reapply_time = mp.get_time()
 
             mp.commandv("af", "pre", get_silence_filter())
+            update_filter_opts()
         end)
     end
 end
@@ -539,7 +545,7 @@ local function check_time()
 
         local remaining = 0
         local remaining_pts = 0
-        if opts.lookahead > 0 then
+        if filter_lookahead > 0 then
             -- calc time based on pts while lookahead
             input_pts = input_pts or get_input_pts(now)
 
@@ -549,7 +555,7 @@ local function check_time()
             else
                 offset = -opts.endmargin * base_speed
             end
-            remaining_pts = offset + (ev.pts - input_pts) + opts.lookahead
+            remaining_pts = offset + (ev.pts - input_pts) + filter_lookahead
             dprint("input_pts:", input_pts, "ev.pts:", ev.pts, "remaining:", remaining_pts)
         else
             if ev.is_silent ~= was_silent then
@@ -569,7 +575,7 @@ local function check_time()
                 end
             end
         end
-        if opts.lookahead > 0 then
+        if filter_lookahead > 0 then
             if remaining_pts > 0 then
                 next_delay_pts = remaining_pts
                 break
@@ -766,8 +772,8 @@ local function add_event(silent, pts)
         -- remove outdated events: keep the newest event in the past relative
         -- to input time
         local input_pts = pts
-        if opts.lookahead > 0 then
-            input_pts = input_pts - opts.lookahead
+        if filter_lookahead > 0 then
+            input_pts = input_pts - filter_lookahead
         end
         for i = events_ifirst+1, events_ilast-1 do
             if events[i].pts > input_pts then
@@ -886,6 +892,7 @@ local function insert_detect_filter()
     if not mp.get_property("af"):find("@"..detect_filter_label..":", 1, true) then
         return false
     end
+    update_filter_opts()
 
     if not is_filter_added then
         mp.register_event("seek", handle_seek)
@@ -1020,6 +1027,8 @@ end
         or list["arnndn_output"] then
         if is_filter_added then
             reapply_filter()
+        else
+            update_filter_opts()
         end
     end
     if list['infostyle'] then
