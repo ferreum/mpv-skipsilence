@@ -257,6 +257,7 @@ local base_speed = 1
 local is_silent = false
 local is_filter_added = false
 local filter_lookahead = 0
+local filter_threshold_duration = 0
 local expected_speed = 1
 local last_speed_change_time = -1
 local filter_reapply_time = -1
@@ -489,6 +490,7 @@ end
 
 local function update_filter_opts()
     filter_lookahead = opts.lookahead
+    filter_threshold_duration = opts.threshold_duration
 end
 
 local function reapply_filter()
@@ -751,7 +753,13 @@ local function add_event(silent, pts)
         local i = events_ilast + 1
         local time = mp.get_time()
         if pts then
-            input_ref_pts = pts
+            if silent then
+                -- start message reports start of silence, so current pts is
+                -- after threshold duration
+                input_ref_pts = pts + filter_threshold_duration
+            else
+                input_ref_pts = pts
+            end
             input_ref_time = time
             if is_paused then
                 input_ref_pause_time = time
