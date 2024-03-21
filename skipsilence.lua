@@ -532,10 +532,10 @@ local schedule_check_time -- function
 local function check_time()
     local now = mp.get_time()
     local input_pts = nil
-    local speed = mp.get_property_number("speed")
+    local prev_speed = mp.get_property_number("speed")
 
-    local new_speed = nil
-    local did_change = is_silent
+    local new_speed = prev_speed
+    local did_change = false
     local was_silent = is_silent
     local next_delay = nil
     local next_delay_pts = nil
@@ -545,11 +545,11 @@ local function check_time()
     for index = events_ifirst, events_ilast do
         local ev = events[index]
 
-        local remaining = 0
-        local remaining_pts = 0
         if filter_lookahead > 0 then
             -- calc time based on pts while lookahead
-            input_pts = input_pts or get_input_pts(now)
+            if not input_pts then
+                input_pts = get_input_pts(now)
+            end
 
             local offset
             if ev.is_silent then
@@ -557,9 +557,15 @@ local function check_time()
             else
                 offset = -opts.endmargin * base_speed
             end
-            remaining_pts = offset + (ev.pts - input_pts) + filter_lookahead
+            local remaining_pts = offset + (ev.pts - input_pts) + filter_lookahead
+
             dprint("input_pts:", input_pts, "ev.pts:", ev.pts, "remaining:", remaining_pts)
+            if remaining_pts > 0 then
+                next_delay_pts = remaining_pts
+                break
+            end
         else
+            local remaining = 0
             if ev.is_silent ~= was_silent then
                 if ev.is_silent then
                     remaining = opts.startdelay - (now - ev.recv_time)
@@ -576,20 +582,17 @@ local function check_time()
                     remaining = 0.05 - (now - ev.filter_cleanup_time)
                 end
             end
-        end
-        if filter_lookahead > 0 then
-            if remaining_pts > 0 then
-                next_delay_pts = remaining_pts
+            if remaining > 0 and events_ilast - index + 1 < 2 then
+                dprint("recheck in", remaining)
+                next_delay = remaining
                 break
             end
-        elseif remaining > 0 and events_ilast - index + 1 < 2 then
-            dprint("recheck in", remaining)
-            next_delay = remaining
-            break
         end
 
-        is_silent = ev.is_silent
-        did_change = true
+        if ev.is_silent ~= is_silent then
+            is_silent = ev.is_silent
+            did_change = true
+        end
         index_current = index
     end
 
@@ -598,25 +601,28 @@ local function check_time()
         drop_event()
     end
 
-    if is_silent ~= was_silent then
-        if is_silent then
-            stats_start_current(now, speed)
-            dprint("silence start")
-
-            local new_base_speed = speed
-            if opts.alt_normal_speed >= 0 and math.abs(speed - 1) < 0.001 then
-                new_base_speed = opts.alt_normal_speed
-                new_speed = new_base_speed
-            end
-            if new_base_speed ~= base_speed then
-                set_base_speed(new_base_speed)
-            end
-            last_speed_change_time = -1
-        else
+    if did_change then
+        if was_silent then
             stats_end_current(now)
 
-            dprint("silence end, saved:", get_saved_time(now, speed))
+            dprint("silence end, saved:", get_saved_time(now, prev_speed))
             new_speed = base_speed
+        end
+        if is_silent then
+            stats_start_current(now, new_speed)
+            dprint("silence start")
+
+            if not was_silent then
+                local new_base_speed = prev_speed
+                if opts.alt_normal_speed >= 0 and math.abs(prev_speed - 1) < 0.001 then
+                    new_base_speed = opts.alt_normal_speed
+                    new_speed = new_base_speed
+                end
+                if new_base_speed ~= base_speed then
+                    set_base_speed(new_base_speed)
+                end
+            end
+            last_speed_change_time = -1
         end
     end
     if is_silent then
@@ -634,33 +640,30 @@ local function check_time()
                     new_speed = s
                 end
             end
-            if next_delay_pts or new_speed <= opts.speed_max or speed ~= opts.speed_max then
+            if next_delay_pts or new_speed <= opts.speed_max or prev_speed ~= opts.speed_max then
                 new_speed = math.min(new_speed, opts.speed_max)
                 last_speed_change_time = now
                 if next_delay_pts or new_speed ~= opts.speed_max then
                     next_delay = take_lower(next_delay, opts.speed_updateinterval)
                 end
             else
-                new_speed = nil
+                new_speed = prev_speed
             end
         end
         did_change = true
     end
-    if new_speed then
+    if new_speed ~= prev_speed then
         expected_speed = new_speed
-        if new_speed ~= speed then
-            speed = new_speed
-            mp.set_property_number("speed", new_speed)
-        end
+        mp.set_property_number("speed", new_speed)
     end
     if next_delay_pts then
-        next_delay = take_lower(next_delay, next_delay_pts / speed)
+        next_delay = take_lower(next_delay, next_delay_pts / new_speed)
     end
     if next_delay then
         schedule_check_time(next_delay)
     end
     dprint("check_time: new_speed:", new_speed, "is_silent:", is_silent, "next_delay:", next_delay, "next_delay_pts:", next_delay_pts)
-    if did_change then
+    if did_change or was_silent then
         update_info(now)
     end
 end
