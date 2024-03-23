@@ -531,7 +531,7 @@ end
 local function reapply_filter()
     if not reapply_filter_timer or not reapply_filter_timer:is_enabled() then
         -- throttle with timer to avoid stalling playback with repeated calls
-        reapply_filter_timer = mp.add_timeout(0.2, function()
+        reapply_filter_timer = mp.add_timeout(0.4, function()
             dprint("reapply filter")
             clear_events()
 
