@@ -734,8 +734,8 @@ local function handle_pause(name, paused)
             input_ref_pause_time = nil
         end
     end
+    stats_handle_pause(now, paused)
     if is_enabled then
-        stats_handle_pause(now, paused)
         if paused then
             if check_time_timer then
                 check_time_timer:kill()
