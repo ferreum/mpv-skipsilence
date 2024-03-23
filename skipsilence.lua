@@ -477,7 +477,8 @@ local function format_info(style, saved_total, period_current, saved)
         ..silence_stats
 end
 
-local function update_info(now)
+local function update_info(opt_now)
+    local now = opt_now or mp.get_time()
     local saved_total, period_current, saved = get_current_stats(now)
     mp.set_property("user-data/skipsilence/saved_total", ("%.3f"):format(saved_total))
     if opts.infostyle == "total" or opts.infostyle == "compact" or opts.infostyle == "verbose" then
@@ -493,10 +494,28 @@ local function update_info(now)
     return false
 end
 
-local function update_info_now()
-    if not update_info(mp.get_time()) then
+local function update_info_now(opt_now)
+    if not update_info(opt_now) then
         mp.set_property("user-data/skipsilence/info", "")
     end
+end
+
+local update_info_timer = nil
+local function schedule_update_info(opt_now)
+    if is_enabled and not is_paused and is_silent then
+        if not update_info_timer then
+            -- long fractional part to prevent stats digits from lining up
+            -- with update interval
+            update_info_timer = mp.add_periodic_timer(0.0217, update_info)
+        else
+            update_info_timer:resume()
+        end
+    else
+        if update_info_timer then
+            update_info_timer:kill()
+        end
+    end
+    update_info_now(opt_now)
 end
 
 local function set_base_speed(speed)
@@ -524,6 +543,7 @@ local function reapply_filter()
 
             mp.commandv("af", "pre", get_silence_filter())
             update_filter_opts()
+            update_info_now()
         end)
     end
 end
@@ -646,6 +666,7 @@ local function check_time()
             end
             last_speed_change_time = -1
         end
+        schedule_update_info(now)
     end
     if is_silent then
         local remaining = opts.speed_updateinterval - (now - last_speed_change_time)
@@ -672,7 +693,6 @@ local function check_time()
                 new_speed = prev_speed
             end
         end
-        did_change = true
     end
     if new_speed ~= prev_speed then
         expected_speed = new_speed
@@ -685,9 +705,6 @@ local function check_time()
         schedule_check_time(next_delay)
     end
     dprint("check_time: new_speed:", new_speed, "is_silent:", is_silent, "next_delay:", next_delay, "next_delay_pts:", next_delay_pts)
-    if did_change or was_silent then
-        update_info(now)
-    end
 end
 
 function schedule_check_time(time)
@@ -726,6 +743,7 @@ local function handle_pause(name, paused)
         else
             check_time()
         end
+        schedule_update_info(now)
     end
 end
 
@@ -1021,6 +1039,7 @@ local function disable(arg1, arg2)
         end
         is_silent = false
         is_enabled = false
+        schedule_update_info()
         if not no_osd then
             mp.osd_message("skipsilence disabled")
         end
