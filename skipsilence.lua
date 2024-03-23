@@ -142,6 +142,15 @@ local opts = {
     -- lookahead period.
     endmargin = 0,
 
+    -- EXPERIMENTAL: For lookahead: minimum length of silence for speed to be
+    -- increased. This is a way to extend `threshold_duration` without needing
+    -- to update the filter.
+    --
+    -- Increases the required duration of silence, without delaying the
+    -- starting point like startdelay (by up to the lookahead duration).
+    -- Measured in seconds of stream time.
+    minduration = 0,
+
     -- How often to update the speed during silence, in seconds of real time.
     speed_updateinterval = 0.2,
     -- The maximum playback speed during silence.
@@ -360,6 +369,13 @@ local function drop_event()
     events_ifirst = i + 1
 end
 
+local function drop_last_event()
+    local i = events_ilast
+    assert(i >= events_ifirst, "event list is empty")
+    events[i] = nil
+    events_ilast = i - 1
+end
+
 local speed_stats
 local function stats_clear()
     speed_stats = {
@@ -454,7 +470,7 @@ local function format_info(style, saved_total, period_current, saved)
                         and "enabled"..(opts.arnndn_output and " with output" or "") or "disabled").."\n"
         ..("Speedup ramp: %g + (time * %g) ^ %g\n"):format(opts.ramp_constant, opts.ramp_factor, opts.ramp_exponent)
     if filter_lookahead > 0 then
-        s = s..("Lookahead: %gs endmargin: %gs\n"):format(filter_lookahead, opts.endmargin)
+        s = s..("Lookahead: %gs endmargin: %gs minduration: %gs\n"):format(filter_lookahead, opts.endmargin, opts.minduration)
             ..("Slowdown ramp: %g + (time * %g) ^ %g\n"):format(opts.slowdown_ramp_constant, opts.slowdown_ramp_factor, opts.slowdown_ramp_exponent)
     end
     return s..("Max speed: %gx, Update interval: %gs\n"):format(opts.speed_max, opts.speed_updateinterval)
@@ -559,6 +575,11 @@ local function check_time()
             end
             local remaining_pts = offset + (ev.pts - input_pts) + filter_lookahead
 
+            if ev.is_silent and opts.minduration > 0 and not events[index+1] then
+                remaining_pts = math.max(remaining_pts,
+                    ev.pts + opts.minduration - input_pts)
+            end
+
             dprint("input_pts:", input_pts, "ev.pts:", ev.pts, "remaining:", remaining_pts)
             if remaining_pts > 0 then
                 next_delay_pts = remaining_pts
@@ -582,7 +603,7 @@ local function check_time()
                     remaining = 0.05 - (now - ev.filter_cleanup_time)
                 end
             end
-            if remaining > 0 and events_ilast - index + 1 < 2 then
+            if remaining > 0 and not events[index+1] then
                 dprint("recheck in", remaining)
                 next_delay = remaining
                 break
@@ -592,6 +613,7 @@ local function check_time()
         if ev.is_silent ~= is_silent then
             is_silent = ev.is_silent
             did_change = true
+            ev.current = true
         end
         index_current = index
     end
@@ -768,6 +790,15 @@ local function add_event(silent, pts)
                 input_ref_pause_time = time
             end
         end
+
+        if filter_lookahead and not silent and prev and not prev.current then
+            if pts - prev.pts < opts.minduration then
+                -- ignore too short silence
+                drop_last_event()
+                return
+            end
+        end
+
         events[i] = {
             recv_time = time,
             is_silent = silent,
