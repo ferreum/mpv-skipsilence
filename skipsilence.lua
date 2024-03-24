@@ -699,23 +699,18 @@ local function check_time()
             dprint("last speed change too recent; recheck in", remaining)
             next_delay = take_lower(next_delay, remaining)
         else
-            new_speed = base_speed * (opts.ramp_constant
+            local s = base_speed * (opts.ramp_constant
                 + (stats_silence_length(now) * opts.ramp_factor) ^ opts.ramp_exponent)
             if next_delay_pts then
-                local s = base_speed * (opts.slowdown_ramp_constant
-                    + (next_delay_pts * opts.slowdown_ramp_factor) ^ opts.slowdown_ramp_exponent)
-                if s < new_speed then
-                    new_speed = s
-                end
+                s = math.min(s, base_speed * (opts.slowdown_ramp_constant
+                    + (next_delay_pts * opts.slowdown_ramp_factor) ^ opts.slowdown_ramp_exponent))
             end
-            if next_delay_pts or new_speed <= opts.speed_max or prev_speed ~= opts.speed_max then
-                new_speed = math.min(new_speed, opts.speed_max)
+            if next_delay_pts or s <= opts.speed_max or new_speed ~= opts.speed_max then
+                new_speed = math.min(s, opts.speed_max)
                 last_speed_change_time = now
                 if next_delay_pts or new_speed ~= opts.speed_max then
                     next_delay = take_lower(next_delay, opts.speed_updateinterval)
                 end
-            else
-                new_speed = prev_speed
             end
         end
     end
