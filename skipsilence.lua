@@ -482,22 +482,38 @@ local function format_info(style, saved_total, period_current, saved)
         return ("Saved total: %.3fs"):format(saved_total)
     end
 
-    local silence_stats = ("Saved total: %.3fs\nLatest: %.3fs, %.3fs saved")
+    local s_stats = ("Saved total: %.3fs\nLatest: %.3fs, %.3fs saved")
         :format(saved_total, period_current, saved)
     if style == "compact" then
-        return silence_stats
+        return s_stats
     end
-    local s = "Status: "..(is_enabled and "enabled" or "disabled").."\n"
-        ..("Threshold: %+gdB, %gs (+%gs)\n"):format(opts.threshold_db, opts.threshold_duration, opts.startdelay)
+
+    local s_threshold, s_lookahead
+    if filter_lookahead > 0 then
+        s_threshold = ("Threshold: %gdB, %gs (min: %gs)\n")
+                :format(opts.threshold_db, opts.threshold_duration, opts.minduration)
+            ..("Start delay: %gs, End margin: %gs\n")
+                :format(opts.startdelay, opts.endmargin)
+        s_lookahead = ("Lookahead: %gs\n")
+                :format(filter_lookahead)
+            ..("Slowdown ramp: %g + (time * %g) ^ %g\n")
+                :format(opts.slowdown_ramp_constant, opts.slowdown_ramp_factor, opts.slowdown_ramp_exponent)
+    else
+        s_threshold = ("Threshold: %+gdB, %gs (+%gs)\n")
+            :format(opts.threshold_db, opts.threshold_duration, opts.startdelay)
+        s_lookahead = ""
+    end
+
+    return "Status: "..(is_enabled and "enabled" or "disabled").."\n"
+        ..s_threshold
         .."Arnndn: "..(opts.arnndn_enable and opts.arnndn_modelpath ~= ""
                         and "enabled"..(opts.arnndn_output and " with output" or "") or "disabled").."\n"
-        ..("Speedup ramp: %g + (time * %g) ^ %g\n"):format(opts.ramp_constant, opts.ramp_factor, opts.ramp_exponent)
-    if filter_lookahead > 0 then
-        s = s..("Lookahead: %gs endmargin: %gs minduration: %gs\n"):format(filter_lookahead, opts.endmargin, opts.minduration)
-            ..("Slowdown ramp: %g + (time * %g) ^ %g\n"):format(opts.slowdown_ramp_constant, opts.slowdown_ramp_factor, opts.slowdown_ramp_exponent)
-    end
-    return s..("Max speed: %gx, Update interval: %gs\n"):format(opts.speed_max, opts.speed_updateinterval)
-        ..silence_stats
+        ..("Speedup ramp: %g + (time * %g) ^ %g\n")
+            :format(opts.ramp_constant, opts.ramp_factor, opts.ramp_exponent)
+        ..s_lookahead
+        ..("Max speed: %gx, Update interval: %gs\n")
+            :format(opts.speed_max, opts.speed_updateinterval)
+        ..s_stats
 end
 
 local function update_info(opt_now)
