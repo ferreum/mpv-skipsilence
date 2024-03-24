@@ -274,6 +274,8 @@ local is_paused = false
 local total_saved_time = 0
 
 local latest_speed = 1
+local filter_restarted = false
+local filter_restart_time_pos = nil
 local input_ref_pts = nil
 local input_ref_time = 0
 local input_ref_pause_time = nil
@@ -315,6 +317,27 @@ local function get_input_pts(opt_now)
         end
         -- estimate for input -> time-pos latency
         return pts + buf * latest_speed + 0.15
+    end
+end
+
+-- Estimate input time based on time-pos.
+-- This is needed to cover the initial filter period of lookahead length,
+-- because these events arrive before playback starts.
+local function estimate_input_time(now)
+    local time_pos = mp.get_property_number("time-pos")
+    if time_pos then
+        local buff = mp.get_property_number("audio-buffer", 0.2)
+        input_ref_pts = time_pos + buff * latest_speed + filter_lookahead
+        input_ref_time = now
+        filter_restart_time_pos = input_ref_pts
+        if is_paused then
+            input_ref_pause_time = now
+        end
+        dprint("estimated input time:", input_ref_pts)
+    else
+        -- wait for core-idle false to estimate time
+        filter_restarted = true
+        filter_restart_time_pos = nil
     end
 end
 
@@ -535,15 +558,17 @@ local function reapply_filter()
             dprint("reapply filter")
             clear_events()
 
+            local now = mp.get_time()
             -- remember last time filters were changed. Used to preserve
             -- silence state when changing options in some cases.
             -- Note: lookahead tends to case a backwards seek event on filter
             -- change, which prevents handling this.
-            filter_reapply_time = mp.get_time()
+            filter_reapply_time = now
 
             mp.commandv("af", "pre", get_silence_filter())
             update_filter_opts()
-            update_info_now()
+            update_info_now(now)
+            estimate_input_time(now)
         end)
     end
 end
@@ -734,6 +759,12 @@ local function handle_pause(name, paused)
             input_ref_pause_time = nil
         end
     end
+
+    if filter_lookahead > 0 and not paused and filter_restarted then
+        filter_restarted = false
+        estimate_input_time(now)
+    end
+
     stats_handle_pause(now, paused)
     if is_enabled then
         if paused then
@@ -795,7 +826,7 @@ local function add_event(silent, pts)
     if not prev or silent ~= prev.is_silent then
         local i = events_ilast + 1
         local time = mp.get_time()
-        if pts then
+        if not filter_restart_time_pos or pts >= filter_restart_time_pos then
             if silent then
                 -- start message reports start of silence, so current pts is
                 -- after threshold duration
@@ -916,9 +947,9 @@ end
 -- called regardless of enabled state
 local function handle_start_file()
     dprint("handle_start_file")
-    if is_enabled then
-        clear_silence_state()
-    end
+    clear_silence_state()
+    filter_restarted = true
+    filter_restart_time_pos = nil
     stats_clear()
     if opts.reset_total == 'file-start' then
         total_saved_time = 0
@@ -937,6 +968,8 @@ end
 local function handle_seek()
     dprint("handle_seek")
     clear_silence_state()
+    filter_restarted = true
+    filter_restart_time_pos = nil
 end
 
 local function insert_detect_filter()
@@ -961,6 +994,7 @@ local function insert_detect_filter()
         mp.observe_property("core-idle", "bool", handle_pause)
     end
     is_filter_added = true
+    estimate_input_time(mp.get_time())
     return true
 end
 
