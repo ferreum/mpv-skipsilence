@@ -1174,6 +1174,7 @@ mp.register_event("start-file", handle_start_file)
 
 set_base_speed(1)
 
+update_filter_opts()
 update_info_now()
 if opts.enabled then
     enable("no-osd")
