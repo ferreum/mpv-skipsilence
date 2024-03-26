@@ -161,7 +161,7 @@ local opts = {
     minduration = 0,
 
     -- How often to update the speed during silence, in seconds of real time.
-    speed_updateinterval = 0.2,
+    speed_updateinterval = 0.05,
     -- The maximum playback speed during silence.
     speed_max = 4,
 
@@ -180,9 +180,9 @@ local opts = {
     --   results in a linear curve, values above 1 increase the speed faster
     --   the more time has passed, while values below 1 speed up at
     --   decreasing intervals.
-    ramp_constant = 1.5,
-    ramp_factor = 1.15,
-    ramp_exponent = 1.2,
+    ramp_constant = 1.25,
+    ramp_factor = 2.5,
+    ramp_exponent = 1,
 
     -- EXPERIMENTAL: Same as ramp_* options, but for slowdown when using
     -- lookahead. 'time' is the remaining time to the end of silence.
@@ -191,9 +191,9 @@ local opts = {
     --
     -- While slowdown ramp is active, always the lower speed calculated by the
     -- two ramps is used.
-    slowdown_ramp_constant = 1.5,
-    slowdown_ramp_factor = 5,
-    slowdown_ramp_exponent = 0.5,
+    slowdown_ramp_constant = 1,
+    slowdown_ramp_factor = 3,
+    slowdown_ramp_exponent = 0.6,
 
     -- Noise reduction filter configuration.
     --
