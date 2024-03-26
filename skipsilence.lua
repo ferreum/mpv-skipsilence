@@ -1136,14 +1136,16 @@ end
             update_filter_opts()
         end
     end
-    if list['infostyle'] then
-        update_info_now()
-    end
     if list["ramp_constant"] or list["ramp_factor"] or list["ramp_exponent"]
+        or list["slowdown_ramp_constant"] or list["slowdown_ramp_factor"]
+        or list["slowdown_ramp_exponent"] or list["minduration"]
+        or list['startdelay'] or list['margin_start'] or list['margin_end']
         or list["speed_updateinterval"] or list["speed_max"] then
         if is_enabled then
             check_time()
         end
+        update_info_now()
+    elseif list['infostyle'] then
         update_info_now()
     end
     if list["filter_persistent"] then
