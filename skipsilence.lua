@@ -119,6 +119,8 @@ local opts = {
     -- How long to wait before speedup. This is measured in seconds of real
     -- time, thus higher playback speeds would reduce the length of content
     -- skipped.
+    --
+    -- Ignored while `lookahead` is used. Use `margin_start` instead.
     startdelay = 0.05,
 
     -- How long to look ahead to allow slowing down ahead of end of silence.
@@ -136,11 +138,18 @@ local opts = {
     -- Recommended values are around 1.0.
     lookahead = 0,
 
-    -- EXPERIMENTAL: Extra margin to slow down before detected end of silence.
-    -- Measured in seconds of real time, like startdelay.
-    -- Requires lookahead to be active. Maximum adjustment is limited by the
-    -- lookahead period.
-    endmargin = 0,
+    -- EXPERIMENTAL: For lookahead: Extra margin at start and end of detected
+    -- silence. `margin_start` delays speed-up, `margin_end` slows down
+    -- earlier, by the specified time.
+    --
+    -- Measured in seconds of stream time. Negative values are allowed, having
+    -- the opposite effect.
+    --
+    -- Requires lookahead to be active. Maximum backwards adjustment is limited
+    -- by the lookahead period (positive `margin_end` or negative
+    -- `margin_start`).
+    margin_start = 0.05,
+    margin_end = 0,
 
     -- EXPERIMENTAL: For lookahead: minimum length of silence for speed to be
     -- increased. This is a way to extend `threshold_duration` without needing
@@ -482,8 +491,8 @@ local function format_info(style, saved_total, period_current, saved)
     if filter_lookahead > 0 then
         s_threshold = ("Threshold: %gdB, %gs (min: %gs)\n")
                 :format(opts.threshold_db, opts.threshold_duration, opts.minduration)
-            ..("Start delay: %gs, End margin: %gs\n")
-                :format(opts.startdelay, opts.endmargin)
+            ..("Margin start: %gs, End: %gs\n")
+                :format(opts.margin_start, opts.margin_end)
         s_lookahead = ("Lookahead: %gs\n")
                 :format(filter_lookahead)
             ..("Slowdown ramp: %g + (time * %g) ^ %g\n")
@@ -620,9 +629,9 @@ local function check_time()
 
             local offset
             if ev.is_silent then
-                offset = opts.startdelay * base_speed
+                offset = opts.margin_start
             else
-                offset = -opts.endmargin * base_speed
+                offset = -opts.margin_end
             end
             local remaining_pts = offset + (ev.pts - input_pts) + filter_lookahead
 
