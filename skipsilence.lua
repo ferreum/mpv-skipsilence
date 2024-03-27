@@ -303,21 +303,11 @@ local function take_lower(a, b)
     return b
 end
 
+-- Get current detection filter input pts.
+-- Precondition: requires `input_ref_pts` to be set.
 local function get_input_pts(opt_now)
-    if input_ref_pts then
-        local now = input_ref_pause_time or opt_now or mp.get_time()
-        return input_ref_pts + (now - input_ref_time) * latest_speed
-    else
-        -- Note: program flow shouldn't get here because receiving an event
-        -- provides input_ref_pts. Implemented for completeness.
-        local buf = mp.get_property_number("audio-buffer", 0.2)
-        local pts = mp.get_property_number("time-pos")
-        if not pts then
-            return nil
-        end
-        -- estimate for input -> time-pos latency
-        return pts + buf * latest_speed + 0.15
-    end
+    local now = input_ref_pause_time or opt_now or mp.get_time()
+    return input_ref_pts + (now - input_ref_time) * latest_speed
 end
 
 -- Estimate input time based on time-pos.
