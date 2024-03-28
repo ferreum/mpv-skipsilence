@@ -343,10 +343,14 @@ end
 local function get_silence_filter()
     local filter = "silencedetect=n="..opts.threshold_db.."dB:d="..opts.threshold_duration
     local branch_detection = false
+    local split_prefix = ""
     if opts.arnndn_enable and opts.arnndn_modelpath ~= "" then
         local path = mp.command_native{"expand-path", opts.arnndn_modelpath}
         local rnn = "arnndn='"..path.."'"
         filter = rnn..","..filter
+        -- arnndn requires 48kHz float; request it before asplit so amix does
+        -- not require a second conversion for original audio
+        split_prefix = "aformat=f=fltp:r=48000,"
         if not opts.arnndn_output then
             branch_detection = true
         end
@@ -357,6 +361,9 @@ local function get_silence_filter()
         -- detection to run ahead of the current audio playback.
         filter = filter..",asetpts=PTS-STARTPTS,atrim=start="..opts.lookahead
         branch_detection = true
+        -- amix ends output early by the lookahead amount. Pad input with
+        -- silence to fix this.
+        split_prefix = split_prefix.."apad=pad_dur="..opts.lookahead..","
     end
 
     if branch_detection then
@@ -366,13 +373,7 @@ local function get_silence_filter()
         -- Parameter "duration" doesn't seem to affect output cutoff problem
         -- with lookahead. Explicit duration=shortest chosen that ought to
         -- resemble the required behavior for the workaround.
-        filter = "asplit[ao],"..filter..",[ao]amix='weights=1 0':normalize=0:duration=shortest"
-
-        if opts.lookahead > 0 then
-            -- amix ends output early by the lookahead amount. Pad input with
-            -- silence to fix this.
-            filter = "apad=pad_dur="..opts.lookahead..","..filter
-        end
+        filter = split_prefix.."asplit[ao],"..filter..",[ao]amix='weights=1 0':normalize=0:duration=shortest"
     end
 
     return "@"..detect_filter_label..":lavfi=["..filter.."]"
