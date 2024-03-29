@@ -128,8 +128,6 @@ local opts = {
     -- EXPERIMENTAL: Enabling this completely changes internal timing logic. It
     -- may be less reliable than operation without lookahead.
     --
-    -- Not compatible with `arnndn_output`.
-    --
     -- Low values (~0.2s) tend to make filter adjustments (threshold_*) more
     -- jarring because of skipped audio. Higher values (~1.0s) cause a seek
     -- event instead, which may be less problematic. Do not set this too high,
@@ -344,15 +342,21 @@ local function get_silence_filter()
     local filter = "silencedetect=n="..opts.threshold_db.."dB:d="..opts.threshold_duration
     local branch_detection = false
     local split_prefix = ""
+
     if opts.arnndn_enable and opts.arnndn_modelpath ~= "" then
         local path = mp.command_native{"expand-path", opts.arnndn_modelpath}
-        local rnn = "arnndn='"..path.."'"
-        filter = rnn..","..filter
-        -- arnndn requires 48kHz float; request it before asplit so amix does
-        -- not require a second conversion for original audio
-        split_prefix = "aformat=f=fltp:r=48000,"
-        if not opts.arnndn_output then
-            branch_detection = true
+        local rnn = "arnndn='"..path.."',"
+
+        if opts.lookahead > 0 and opts.arnndn_output then
+            split_prefix = rnn
+        else
+            filter = rnn..filter
+            -- arnndn requires 48kHz float; request it before asplit so amix
+            -- does not require a second conversion for original audio
+            split_prefix = "aformat=f=fltp:r=48000,"
+            if not opts.arnndn_output then
+                branch_detection = true
+            end
         end
     end
 
