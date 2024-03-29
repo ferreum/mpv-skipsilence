@@ -141,11 +141,11 @@ Mpv's profiles can be used to switch between different presets. Create profiles
 in `mpv.conf` and apply them with the `apply-profile` command.
 
     [skipsilence-default]
-    script-opts-append=skipsilence-ramp_constant=1.5
-    script-opts-append=skipsilence-ramp_factor=1.15
-    script-opts-append=skipsilence-ramp_exponent=1.2
+    script-opts-append=skipsilence-ramp_constant=1.25
+    script-opts-append=skipsilence-ramp_factor=2.5
+    script-opts-append=skipsilence-ramp_exponent=1
     script-opts-append=skipsilence-speed_max=4
-    script-opts-append=skipsilence-speed_updateinterval=0.2
+    script-opts-append=skipsilence-speed_updateinterval=0.05
     script-opts-append=skipsilence-startdelay=0.05
 
 Bind it to a key in `input.conf`:
