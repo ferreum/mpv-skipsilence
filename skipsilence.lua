@@ -925,17 +925,17 @@ end
 
 local function adjust_speed(method, number_str)
     local number = tonumber(number_str)
-    if method ~= 'add' and method ~= 'multiply' and method ~= 'set' or not number then
+    if method ~= "add" and method ~= "multiply" and method ~= "set" or not number then
         mp.msg.error("invalid arguments; usage: adjust-speed add|multiply|set <number>")
         return
     end
 
     if is_silent then
-        if method == 'add' then
+        if method == "add" then
             set_base_speed(base_speed + number)
-        elseif method == 'multiply' then
+        elseif method == "multiply" then
             set_base_speed(base_speed * number)
-        elseif method == 'set' then
+        elseif method == "set" then
             set_base_speed(number)
         end
         last_speed_change_time = -1
@@ -966,7 +966,7 @@ local function handle_start_file()
     filter_restarted = true
     filter_restart_time_pos = nil
     stats_clear()
-    if opts.reset_total == 'file-start' then
+    if opts.reset_total == "file-start" then
         total_saved_time = 0
     end
     update_info_now()
@@ -1132,7 +1132,7 @@ end
     if list["enabled"] and not opts.enabled and is_enabled then
         disable("no-osd")
     end
-    if list['threshold_db'] or list['threshold_duration'] or list["lookahead"]
+    if list["threshold_db"] or list["threshold_duration"] or list["lookahead"]
         or list["arnndn_enable"] or list["arnndn_modelpath"]
         or list["arnndn_output"] then
         if is_filter_added then
@@ -1144,13 +1144,13 @@ end
     if list["ramp_constant"] or list["ramp_factor"] or list["ramp_exponent"]
         or list["slowdown_ramp_constant"] or list["slowdown_ramp_factor"]
         or list["slowdown_ramp_exponent"] or list["minduration"]
-        or list['startdelay'] or list['margin_start'] or list['margin_end']
+        or list["startdelay"] or list["margin_start"] or list["margin_end"]
         or list["speed_updateinterval"] or list["speed_max"] then
         if is_enabled then
             check_time()
         end
         update_info_now()
-    elseif list['infostyle'] then
+    elseif list["infostyle"] then
         update_info_now()
     end
     if list["filter_persistent"] then
