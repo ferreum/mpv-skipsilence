@@ -127,6 +127,14 @@ To maximize skipping speed, start with the extreme profile (see
 - Notice that extreme values of `ramp_exponent` tend to be less useful. It's
   recommended to keep the `ramp_exponent` around 0.9 for aggressive profiles.
 
+#### Lookahead
+
+The experimental lookahead option makes much higher maximum speed practical by
+gradually slowing down before the end of silence is reached. See the
+`lookahead`, `slowdown_ramp_*` and `margin_*` options. To maximize skipping
+speed, use a slowdown ramp that is as steep as possible without overshooting on
+slowdown. `margin_end` can help, but is usually not required.
+
 ### Profiles
 
 Mpv's profiles can be used to switch between different presets. Create profiles
