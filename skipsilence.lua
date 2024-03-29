@@ -133,9 +133,12 @@ local opts = {
     -- Low values (~0.2s) tend to make filter adjustments (threshold_*) more
     -- jarring because of skipped audio. Higher values (~1.0s) cause a seek
     -- event instead, which may be less problematic. Do not set this too high,
-    -- as it introduces additional buffering.
+    -- as it introduces additional buffering and could reduce timing precision.
     --
-    -- Recommended values are around 1.0.
+    -- Recommended values are between 0.5 and 1.0.
+    --
+    -- Option filter_persistent should be enabled for seamless toggling of the
+    -- script.
     lookahead = 0,
 
     -- EXPERIMENTAL: For lookahead: Extra margin at start and end of detected
