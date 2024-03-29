@@ -28,10 +28,35 @@ feature.
 - Saved time estimation.
 - Integration with osd-msg, auto profiles, etc. (with user-data, mpv 0.36 and
   above only).
+- Experimental: Lookahead for dynamic slowdown and faster reaction time
+  (`lookahead`, `slowdown_ramp_*`, `margin_*` options).
 - Workaround for scaletempo2 audio-video desynchronization in mpv 0.36 and
   below (`resync_threshold_droppedframes` option).
 - Workaround for clicks during speed changes with scaletempo2 in mpv 0.36 and
   below (`alt_normal_speed` option).
+
+### Silence detection visualized
+
+The following graph shows an example silence detection and resulting playback
+speed, annotated with options that impact speed changes.
+
+![silence detection visualization](./images/detection.svg)
+
+If the experimental `lookahead` option is set to a positive value, the effect
+of some options changes:
+
+<sup>1)</sup> Without lookahead, `Silence Start` is delayed by
+`threshold_duration`. If lookahead is active, it reduces this delay by up to
+that configured lookahead duration.
+
+<sup>2)</sup> `minduration` is only supported with lookahead.
+
+<sup>3)</sup> `startdelay` is ignored if lookahead is enabled and
+`margin_start` is used instead.
+
+<sup>4)</sup> The box marked `if lookahead` only applies if lookahead is
+active. Otherwise, the speed is reverted in a single step exactly at the time
+of `Silence End` detection.
 
 ## Default bindings
 
@@ -102,17 +127,25 @@ To maximize skipping speed, start with the extreme profile (see
 - Notice that extreme values of `ramp_exponent` tend to be less useful. It's
   recommended to keep the `ramp_exponent` around 0.9 for aggressive profiles.
 
+#### Lookahead
+
+The experimental lookahead option makes much higher maximum speed practical by
+gradually slowing down before the end of silence is reached. See the
+`lookahead`, `slowdown_ramp_*` and `margin_*` options. To maximize skipping
+speed, use a slowdown ramp that is as steep as possible without overshooting on
+slowdown. `margin_end` can help, but is usually not required.
+
 ### Profiles
 
 Mpv's profiles can be used to switch between different presets. Create profiles
 in `mpv.conf` and apply them with the `apply-profile` command.
 
     [skipsilence-default]
-    script-opts-append=skipsilence-ramp_constant=1.5
-    script-opts-append=skipsilence-ramp_factor=1.15
-    script-opts-append=skipsilence-ramp_exponent=1.2
+    script-opts-append=skipsilence-ramp_constant=1.25
+    script-opts-append=skipsilence-ramp_factor=2.5
+    script-opts-append=skipsilence-ramp_exponent=1
     script-opts-append=skipsilence-speed_max=4
-    script-opts-append=skipsilence-speed_updateinterval=0.2
+    script-opts-append=skipsilence-speed_updateinterval=0.05
     script-opts-append=skipsilence-startdelay=0.05
 
 Bind it to a key in `input.conf`:
