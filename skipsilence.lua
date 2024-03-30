@@ -114,7 +114,7 @@ local opts = {
     -- The silence threshold in decibel. Anything quieter than this is
     -- detected as silence. Can be adjusted with the threshold-up,
     -- threshold-down bindings, and adjust-threshold-db script message.
-    threshold_db = -24,
+    threshold_db = -30,
     -- Minimum duration of silence to be detected, in seconds. This is
     -- measured in seconds of stream time, as if playback speed was 1.
     threshold_duration = 0.1,
