@@ -7,7 +7,7 @@ Main repository: https://codeberg.org/ferreum/mpv-skipsilence/
 
 Based on the script https://gist.github.com/bitingsock/e8a56446ad9c1ed92d872aeb38edf124
 
-This is similar to the NewPipe app's built-in "Fast-forward during silence"
+This is inspired by the NewPipe app's built-in "Fast-forward during silence"
 feature.
 
 > Note: In mpv version 0.36 and below, the `scaletempo2` filter (default since
