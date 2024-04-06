@@ -577,25 +577,26 @@ local function update_filter_opts()
 end
 
 local function reapply_filter()
-    if not reapply_filter_timer or not reapply_filter_timer:is_enabled() then
-        -- throttle with timer to avoid stalling playback with repeated calls
-        reapply_filter_timer = mp.add_timeout(0.4, function()
-            dprint("reapply filter")
-            clear_events()
-
-            local now = mp.get_time()
-            -- remember last time filters were changed. Used to preserve
-            -- silence state when changing options in some cases.
-            -- Note: lookahead tends to case a backwards seek event on filter
-            -- change, which prevents handling this.
-            filter_reapply_time = now
-
-            mp.commandv("af", "pre", get_silence_filter())
-            update_filter_opts()
-            update_info_now(now)
-            estimate_input_time(now)
-        end)
+    -- debounce with timer to avoid disrupting playback with repeated calls
+    if reapply_filter_timer then
+        reapply_filter_timer:kill()
     end
+    reapply_filter_timer = mp.add_timeout(0.4, function()
+        dprint("reapply filter")
+        clear_events()
+
+        local now = mp.get_time()
+        -- remember last time filters were changed. Used to preserve
+        -- silence state when changing options in some cases.
+        -- Note: lookahead tends to case a backwards seek event on filter
+        -- change, which prevents handling this.
+        filter_reapply_time = now
+
+        mp.commandv("af", "pre", get_silence_filter())
+        update_filter_opts()
+        update_info_now(now)
+        estimate_input_time(now)
+    end)
 end
 
 local function clear_silence_state()
