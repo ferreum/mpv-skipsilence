@@ -997,8 +997,9 @@ local function insert_detect_filter()
     if not is_filter_added then
         -- if filter was added externally, silence start messages are
         -- missed; ensure it's removed first
-        if mp.get_property("af"):find("@"..detect_filter_label..":", 1, true) then
-            mp.commandv("af", "remove", "@"..detect_filter_label)
+        if mp.get_property("af"):find("@"..detect_filter_label..":[^!]") then
+            -- replace with disabled anull to preserve filter position
+            mp.commandv("af", "pre", "@"..detect_filter_label..":!anull")
         end
     end
     mp.commandv("af", "pre", get_silence_filter())
@@ -1027,7 +1028,8 @@ local function remove_detect_filter()
     mp.unregister_event(handle_silence_msg)
     mp.unobserve_property(handle_speed)
     mp.unobserve_property(handle_pause)
-    mp.commandv("af", "remove", "@"..detect_filter_label)
+    -- replace with disabled anull to preserve filter position
+    mp.commandv("af", "pre", "@"..detect_filter_label..":!anull")
     is_filter_added = false
     clear_events()
 end
