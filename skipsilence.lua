@@ -842,6 +842,7 @@ local function add_event(silent, pts)
     -- Workaround: remove all events when there is a jump back.
     if prev and prev.pts > pts then
         clear_events()
+        prev = nil
     end
 
     if not prev or silent ~= prev.is_silent then
