@@ -845,7 +845,6 @@ local function add_event(silent, pts)
     end
 
     if not prev or silent ~= prev.is_silent then
-        local i = events_ilast + 1
         local time = mp.get_time()
         if not filter_restart_time_pos or pts >= filter_restart_time_pos then
             if silent then
@@ -869,6 +868,7 @@ local function add_event(silent, pts)
             end
         end
 
+        local i = events_ilast + 1
         events[i] = {
             recv_time = time,
             is_silent = silent,
