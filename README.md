@@ -106,7 +106,7 @@ By default, scaletempo2 produces silence above 8x playback speed (4x in mpv
 0.36 and below). To lift this limit, set the `max-speed` parameter in the
 filter definition (see above) like this:
 
-    af-add=scaletempo2=max-speed=16.0
+    af-add=scaletempo2=max-speed=32.0
 
 ### Maximize skipping speed
 
@@ -183,3 +183,61 @@ Bind it to a key in `input.conf`:
     script-opts-append=skipsilence-speed_updateinterval=0.05
     script-opts-append=skipsilence-startdelay=0
     script-opts-append=skipsilence-threshold_duration=1
+
+#### Examples with lookahead
+
+These use the advanced lookahead feature. It works better with much higher
+skipping speeds.
+
+These use the same `lookahead` duration (1s) and `threshold_duration`, so
+switching between them does not cause a playback interruption.
+
+    # Good default profile with smooth speed-up and slow-down.
+    [skipsilence-normal]
+    script-opts-append=skipsilence-lookahead=1
+    script-opts-append=skipsilence-ramp_constant=1.25
+    script-opts-append=skipsilence-ramp_factor=2.5
+    script-opts-append=skipsilence-ramp_exponent=1
+    script-opts-append=skipsilence-speed_max=6
+    script-opts-append=skipsilence-minduration=0.05
+    script-opts-append=skipsilence-margin_start=0.03
+    script-opts-append=skipsilence-margin_end=0.02
+    script-opts-append=skipsilence-speed_updateinterval=0.02
+    script-opts-append=skipsilence-threshold_duration=0.025
+    script-opts-append=skipsilence-slowdown_ramp_constant=1
+    script-opts-append=skipsilence-slowdown_ramp_factor=3
+    script-opts-append=skipsilence-slowdown_ramp_exponent=.5
+
+    # Very extreme speed-up and slow-down. You can increase max_speed even
+    # higher to skip longer pauses even faster. Make sure you have an updated
+    # mpv and unlocked scaletempo2 max-speed parameter (see above).
+    [skipsilence-extreme]
+    script-opts-append=skipsilence-lookahead=1
+    script-opts-append=skipsilence-ramp_constant=5
+    script-opts-append=skipsilence-ramp_factor=32
+    script-opts-append=skipsilence-ramp_exponent=.9
+    script-opts-append=skipsilence-speed_max=16
+    script-opts-append=skipsilence-minduration=0.05
+    script-opts-append=skipsilence-margin_start=0.05
+    script-opts-append=skipsilence-margin_end=0
+    script-opts-append=skipsilence-speed_updateinterval=0.02
+    script-opts-append=skipsilence-threshold_duration=0.025
+    script-opts-append=skipsilence-slowdown_ramp_constant=1.25
+    script-opts-append=skipsilence-slowdown_ramp_factor=20
+    script-opts-append=skipsilence-slowdown_ramp_exponent=.5
+
+    # Very smooth speed-up and slow-down, max_speed 2.5
+    [skipsilence-smooth]
+    script-opts-append=skipsilence-lookahead=1
+    script-opts-append=skipsilence-ramp_constant=1
+    script-opts-append=skipsilence-ramp_factor=1.5
+    script-opts-append=skipsilence-ramp_exponent=1.2
+    script-opts-append=skipsilence-speed_max=2.5
+    script-opts-append=skipsilence-minduration=0.25
+    script-opts-append=skipsilence-margin_start=0.05
+    script-opts-append=skipsilence-margin_end=0.05
+    script-opts-append=skipsilence-speed_updateinterval=0.02
+    script-opts-append=skipsilence-threshold_duration=0.025
+    script-opts-append=skipsilence-slowdown_ramp_constant=1
+    script-opts-append=skipsilence-slowdown_ramp_factor=1.5
+    script-opts-append=skipsilence-slowdown_ramp_exponent=.8
